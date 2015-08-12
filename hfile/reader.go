@@ -7,6 +7,7 @@ import "encoding/binary"
 import "errors"
 import "github.com/edsrzf/mmap-go"
 import "os"
+import "github.com/golang/snappy"
 
 type Reader struct {
 	mmap      mmap.MMap
@@ -134,7 +135,25 @@ func (header *Header) newDataIndex(mmap mmap.MMap) (DataIndex, error) {
 		binary.Read(dataIndex.buf, binary.BigEndian, &dataBlock.offset)
 		binary.Read(dataIndex.buf, binary.BigEndian, &dataBlock.size)
 
-		dataBlock.buf = bytes.NewReader(mmap[dataBlock.offset : dataBlock.offset+uint64(dataBlock.size)])
+		switch {
+		case header.compressionCodec == 2: // No compression
+			dataBlock.buf = bytes.NewReader(mmap[dataBlock.offset : dataBlock.offset+uint64(dataBlock.size)])
+		case header.compressionCodec == 3: // Snappy
+			uncompressedByteSize := binary.BigEndian.Uint32(mmap[dataBlock.offset : dataBlock.offset+4])
+			if uncompressedByteSize != dataBlock.size {
+				return dataIndex, errors.New("mismatched uncompressed block size")
+			}
+			compressedByteSize := binary.BigEndian.Uint32(mmap[dataBlock.offset+4 : dataBlock.offset+8])
+			compressedBytes := mmap[dataBlock.offset+8 : dataBlock.offset+8+uint64(compressedByteSize)]
+			uncompressedBytes, err := snappy.Decode(nil, compressedBytes)
+			if err != nil {
+				return dataIndex, err
+			}
+			dataBlock.buf = bytes.NewReader(uncompressedBytes)
+		default:
+			return dataIndex, errors.New("Unsupported compression codec " + string(header.compressionCodec))
+		}
+
 		dataBlockMagic := make([]byte, 8)
 		dataBlock.buf.Read(dataBlockMagic)
 		if bytes.Compare(dataBlockMagic, []byte("DATABLK*")) != 0 {
