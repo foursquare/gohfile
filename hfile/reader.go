@@ -25,8 +25,17 @@ func NewReader(file *os.File) (Reader, error) {
 
 	versionIndex := len(hfile.mmap) - 4
 	hfile.version, err = newVersion(bytes.NewReader(hfile.mmap[versionIndex:]))
+	if err != nil {
+		return hfile, err
+	}
 	hfile.header, err = hfile.version.newHeader(hfile.mmap)
+	if err != nil {
+		return hfile, err
+	}
 	hfile.dataIndex, err = hfile.header.newDataIndex(hfile.mmap)
+	if err != nil {
+		return hfile, err
+	}
 
 	return hfile, nil
 }
