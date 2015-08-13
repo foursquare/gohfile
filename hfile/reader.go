@@ -2,7 +2,11 @@
 
 package hfile
 
-import "bytes"
+import (
+	"bytes"
+	"fmt"
+	"io"
+)
 import "encoding/binary"
 import "errors"
 import "github.com/edsrzf/mmap-go"
@@ -59,6 +63,14 @@ func (hfile *Reader) Get(key []byte) ([]byte, error) {
 		return key, err
 	}
 	return dataBlock.get(key)
+}
+
+func (r *Reader) PrintDebugInfo(out io.Writer) {
+	fmt.Fprintln(out, "entries: ", r.header.entryCount)
+	fmt.Fprintln(out, "blocks: ", len(r.dataIndex.dataBlocks))
+	for i, blk := range r.dataIndex.dataBlocks {
+		fmt.Fprintf(out, "\t#%d: %s (%v)\n", i, blk.firstKeyBytes, blk.firstKeyBytes)
+	}
 }
 
 type Version struct {
