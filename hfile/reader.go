@@ -43,8 +43,8 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-func NewReader(file *os.File) (Reader, error) {
-	hfile := Reader{}
+func NewReader(file *os.File) (*Reader, error) {
+	hfile := new(Reader)
 	var err error
 	hfile.mmap, err = mmap.Map(file, mmap.RDONLY, 0)
 	if err != nil {
@@ -65,29 +65,6 @@ func NewReader(file *os.File) (Reader, error) {
 	}
 
 	return hfile, nil
-}
-
-func getDataBlock(key []byte, blocks *[]Block) (int, bool) {
-	// TODO(dan): Binary search instead.
-	for i := len(*blocks) - 1; i >= 0; i-- {
-		block := (*blocks)[i]
-		if cmp := bytes.Compare(key, block.firstKeyBytes); cmp == 0 || cmp == 1 {
-			return i, true
-		}
-	}
-	return -1, false
-}
-
-func (r *Reader) Get(key []byte) ([]byte, bool) {
-	i, found := getDataBlock(key, &r.index)
-	if !found {
-		return nil, false
-	}
-
-	buf, _ := r.GetBlock(i)
-
-	v, _, found := get(buf, key, true)
-	return v, found
 }
 
 func (r *Reader) PrintDebugInfo(out io.Writer) {
@@ -155,6 +132,10 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 	return nil
 }
 
+func (b *Block) IsAfter(key []byte) bool {
+	return bytes.Compare(b.firstKeyBytes, key) > 0
+}
+
 func (r *Reader) GetBlock(i int) (*bytes.Reader, error) {
 	var buf *bytes.Reader
 
@@ -186,27 +167,4 @@ func (r *Reader) GetBlock(i int) (*bytes.Reader, error) {
 	}
 
 	return buf, nil
-}
-
-func get(buf *bytes.Reader, key []byte, first bool) ([]byte, [][]byte, bool) {
-	var acc [][]byte
-
-	for buf.Len() > 0 {
-		var keyLen, valLen uint32
-		binary.Read(buf, binary.BigEndian, &keyLen)
-		binary.Read(buf, binary.BigEndian, &valLen)
-		keyBytes := make([]byte, keyLen)
-		valBytes := make([]byte, valLen)
-		buf.Read(keyBytes)
-		buf.Read(valBytes)
-		if bytes.Compare(key, keyBytes) == 0 {
-			if first {
-				return valBytes, nil, true
-			} else {
-				acc = append(acc, valBytes)
-			}
-		}
-	}
-
-	return nil, acc, len(acc) > 0
 }

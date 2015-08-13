@@ -33,18 +33,26 @@ func (configs *ServerConfigs) Set(path string) error {
 
 type ServerHandler struct {
 	config ServerConfig
-	hfile  Reader
+	hfile  *Reader
 }
 
 func (s ServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key, _ := ioutil.ReadAll(r.Body)
-	value, found := s.hfile.Get(key)
-	if found {
-		fmt.Fprint(w, value)
+	key, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), 401)
 	} else {
-		http.Error(w, "not found", 404)
+		scan := NewScanner(s.hfile)
+		value, err, found := scan.GetFirst(key)
+		if found {
+			fmt.Fprint(w, value)
+		} else {
+			if err != nil {
+				http.Error(w, "not found", 500)
+			} else {
+				http.Error(w, "not found", 404)
+			}
+		}
 	}
-
 }
 
 type Server struct {
