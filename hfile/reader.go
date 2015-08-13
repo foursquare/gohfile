@@ -38,7 +38,6 @@ type Header struct {
 }
 
 type Block struct {
-	buf           *bytes.Reader
 	offset        uint64
 	size          uint32
 	firstKeyBytes []byte
@@ -68,22 +67,26 @@ func NewReader(file *os.File) (Reader, error) {
 	return hfile, nil
 }
 
-func getDataBlock(key []byte, blocks *[]Block) (*Block, bool) {
+func getDataBlock(key []byte, blocks *[]Block) (int, bool) {
 	// TODO(dan): Binary search instead.
 	for i := len(*blocks) - 1; i >= 0; i-- {
 		block := (*blocks)[i]
 		if cmp := bytes.Compare(key, block.firstKeyBytes); cmp == 0 || cmp == 1 {
-			return &block, true
+			return i, true
 		}
 	}
-	return nil, false
+	return -1, false
 }
-func (hfile *Reader) Get(key []byte) ([]byte, bool) {
-	dataBlock, found := getDataBlock(key, &hfile.index)
+
+func (r *Reader) Get(key []byte) ([]byte, bool) {
+	i, found := getDataBlock(key, &r.index)
 	if !found {
 		return nil, false
 	}
-	v, _, found := dataBlock.get(key, true)
+
+	buf, _ := r.GetBlock(i)
+
+	v, _, found := get(buf, key, true)
 	return v, found
 }
 
@@ -142,31 +145,6 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 		binary.Read(buf, binary.BigEndian, &dataBlock.offset)
 		binary.Read(buf, binary.BigEndian, &dataBlock.size)
 
-		switch {
-		case r.header.compressionCodec == 2: // No compression
-			dataBlock.buf = bytes.NewReader(mmap[dataBlock.offset : dataBlock.offset+uint64(dataBlock.size)])
-		case r.header.compressionCodec == 3: // Snappy
-			uncompressedByteSize := binary.BigEndian.Uint32(mmap[dataBlock.offset : dataBlock.offset+4])
-			if uncompressedByteSize != dataBlock.size {
-				return errors.New("mismatched uncompressed block size")
-			}
-			compressedByteSize := binary.BigEndian.Uint32(mmap[dataBlock.offset+4 : dataBlock.offset+8])
-			compressedBytes := mmap[dataBlock.offset+8 : dataBlock.offset+8+uint64(compressedByteSize)]
-			uncompressedBytes, err := snappy.Decode(nil, compressedBytes)
-			if err != nil {
-				return err
-			}
-			dataBlock.buf = bytes.NewReader(uncompressedBytes)
-		default:
-			return errors.New("Unsupported compression codec " + string(r.header.compressionCodec))
-		}
-
-		dataBlockMagic := make([]byte, 8)
-		dataBlock.buf.Read(dataBlockMagic)
-		if bytes.Compare(dataBlockMagic, []byte("DATABLK*")) != 0 {
-			return errors.New("bad data block magic")
-		}
-
 		firstKeyLen, _ := binary.ReadUvarint(buf)
 		dataBlock.firstKeyBytes = make([]byte, firstKeyLen)
 		buf.Read(dataBlock.firstKeyBytes)
@@ -177,21 +155,50 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 	return nil
 }
 
-func (dataBlock *Block) reset() {
-	dataBlock.buf.Seek(8, 0)
+func (r *Reader) GetBlock(i int) (*bytes.Reader, error) {
+	var buf *bytes.Reader
+
+	block := r.index[i]
+
+	switch {
+	case r.header.compressionCodec == 2: // No compression
+		buf = bytes.NewReader(r.mmap[block.offset : block.offset+uint64(block.size)])
+	case r.header.compressionCodec == 3: // Snappy
+		uncompressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset : block.offset+4])
+		if uncompressedByteSize != block.size {
+			return nil, errors.New("mismatched uncompressed block size")
+		}
+		compressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset+4 : block.offset+8])
+		compressedBytes := r.mmap[block.offset+8 : block.offset+8+uint64(compressedByteSize)]
+		uncompressedBytes, err := snappy.Decode(nil, compressedBytes)
+		if err != nil {
+			return nil, err
+		}
+		buf = bytes.NewReader(uncompressedBytes)
+	default:
+		return nil, errors.New("Unsupported compression codec " + string(r.header.compressionCodec))
+	}
+
+	dataBlockMagic := make([]byte, 8)
+	buf.Read(dataBlockMagic)
+	if bytes.Compare(dataBlockMagic, []byte("DATABLK*")) != 0 {
+		return nil, errors.New("bad data block magic")
+	}
+
+	return buf, nil
 }
-func (dataBlock *Block) get(key []byte, first bool) ([]byte, [][]byte, bool) {
+
+func get(buf *bytes.Reader, key []byte, first bool) ([]byte, [][]byte, bool) {
 	var acc [][]byte
 
-	dataBlock.reset()
-	for dataBlock.buf.Len() > 0 {
+	for buf.Len() > 0 {
 		var keyLen, valLen uint32
-		binary.Read(dataBlock.buf, binary.BigEndian, &keyLen)
-		binary.Read(dataBlock.buf, binary.BigEndian, &valLen)
+		binary.Read(buf, binary.BigEndian, &keyLen)
+		binary.Read(buf, binary.BigEndian, &valLen)
 		keyBytes := make([]byte, keyLen)
 		valBytes := make([]byte, valLen)
-		dataBlock.buf.Read(keyBytes)
-		dataBlock.buf.Read(valBytes)
+		buf.Read(keyBytes)
+		buf.Read(valBytes)
 		if bytes.Compare(key, keyBytes) == 0 {
 			if first {
 				return valBytes, nil, true

@@ -2,17 +2,21 @@
 
 package hfile
 
-import "encoding/binary"
+import (
+	"bytes"
+	"encoding/binary"
+)
 
 type Iterator struct {
 	hfile          *Reader
 	dataBlockIndex int
+	block          *bytes.Reader
 	key            []byte
 	value          []byte
 }
 
 func (hfile *Reader) NewIterator() *Iterator {
-	it := Iterator{hfile, 0, nil, nil}
+	it := Iterator{hfile, 0, nil, nil, nil}
 	return &it
 }
 
@@ -20,24 +24,23 @@ func (it *Iterator) Next() bool {
 	if it.dataBlockIndex >= len(it.hfile.index) {
 		return false
 	}
-	dataBlock := it.hfile.index[it.dataBlockIndex]
-	if dataBlock.buf.Len() <= 0 {
+
+	if it.block == nil {
+		it.block, _ = it.hfile.GetBlock(it.dataBlockIndex)
+	}
+
+	if it.block.Len() <= 0 {
 		it.dataBlockIndex += 1
-		if it.dataBlockIndex >= len(it.hfile.index) {
-			return false
-		}
-		dataBlock := it.hfile.index[it.dataBlockIndex]
-		dataBlock.reset()
 		return it.Next()
 	}
 
 	var keyLen, valLen uint32
-	binary.Read(dataBlock.buf, binary.BigEndian, &keyLen)
-	binary.Read(dataBlock.buf, binary.BigEndian, &valLen)
+	binary.Read(it.block, binary.BigEndian, &keyLen)
+	binary.Read(it.block, binary.BigEndian, &valLen)
 	it.key = make([]byte, keyLen)
 	it.value = make([]byte, valLen)
-	dataBlock.buf.Read(it.key)
-	dataBlock.buf.Read(it.value)
+	it.block.Read(it.key)
+	it.block.Read(it.value)
 	return true
 }
 
