@@ -5,33 +5,76 @@ package hfile
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"sort"
 )
 
 type Scanner struct {
-	reader *Reader
+	reader  *Reader
+	idx     int
+	buf     *bytes.Reader
+	lastKey *[]byte
 }
 
 func NewScanner(r *Reader) Scanner {
-	return Scanner{r}
+	return Scanner{r, 0, nil, nil}
+}
+
+func (s *Scanner) Reset() {
+	s.idx = 0
+	s.buf = nil
+	s.lastKey = nil
 }
 
 func (s *Scanner) findBlock(key []byte) int {
-	idx := sort.Search(len(s.reader.index), func(i int) bool {
-		return s.reader.index[i].IsAfter(key)
+	remaining := len(s.reader.index) - s.idx - 1
+
+	if remaining <= 0 {
+		return s.idx // s.cur is the last block, so it is only choice.
+	}
+
+	if s.reader.index[s.idx+1].IsAfter(key) {
+		return s.idx
+	}
+
+	offset := sort.Search(remaining, func(i int) bool {
+		return s.reader.index[s.idx+i+1].IsAfter(key)
 	})
 
-	return idx - 1
+	return s.idx + offset
+}
+
+func (s *Scanner) CheckIfKeyOutOfOrder(key []byte) error {
+	if s.lastKey != nil && bytes.Compare(*s.lastKey, key) > 0 {
+		return fmt.Errorf("Keys our of order! %v > %v", *s.lastKey, key)
+	}
+	s.lastKey = &key
+	return nil
 }
 
 func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
-	idx := s.findBlock(key)
-	if idx < 0 {
+	err := s.CheckIfKeyOutOfOrder(key)
+	if err != nil {
+		return nil, err, false
+	}
+
+	if s.reader.index[s.idx].IsAfter(key) {
 		return nil, nil, false
 	}
-	data, err := s.reader.GetBlock(idx)
-	return data, err, true
+
+	idx := s.findBlock(key)
+
+	if idx != s.idx || s.buf == nil { // need to load a new block
+		data, err := s.reader.GetBlock(idx)
+		if err != nil {
+			return nil, err, false
+		}
+		s.idx = idx
+		s.buf = data
+	}
+
+	return s.buf, nil, true
 }
 
 func (s *Scanner) GetFirst(key []byte) ([]byte, error, bool) {
