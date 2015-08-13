@@ -64,7 +64,8 @@ func (hfile *Reader) Get(key []byte) ([]byte, bool) {
 	if !found {
 		return nil, false
 	}
-	return dataBlock.get(key)
+	v, _, found := dataBlock.get(key, true)
+	return v, found
 }
 
 func (r *Reader) PrintDebugInfo(out io.Writer) {
@@ -185,7 +186,9 @@ type DataBlock struct {
 func (dataBlock *DataBlock) reset() {
 	dataBlock.buf.Seek(8, 0)
 }
-func (dataBlock *DataBlock) get(key []byte) ([]byte, bool) {
+func (dataBlock *DataBlock) get(key []byte, first bool) ([]byte, [][]byte, bool) {
+	var acc [][]byte
+
 	dataBlock.reset()
 	for dataBlock.buf.Len() > 0 {
 		var keyLen, valLen uint32
@@ -196,8 +199,13 @@ func (dataBlock *DataBlock) get(key []byte) ([]byte, bool) {
 		dataBlock.buf.Read(keyBytes)
 		dataBlock.buf.Read(valBytes)
 		if bytes.Compare(key, keyBytes) == 0 {
-			return valBytes, true
+			if first {
+				return valBytes, nil, true
+			} else {
+				acc = append(acc, valBytes)
+			}
 		}
 	}
-	return key, false
+
+	return nil, acc, len(acc) > 0
 }
