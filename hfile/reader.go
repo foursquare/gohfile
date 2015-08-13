@@ -24,6 +24,19 @@ type Reader struct {
 	index  []Block
 }
 
+type Header struct {
+	index int
+
+	fileInfoOffset             uint64
+	dataIndexOffset            uint64
+	dataIndexCount             uint32
+	metaIndexOffset            uint64
+	metaIndexCount             uint32
+	totalUncompressedDataBytes uint64
+	entryCount                 uint32
+	compressionCodec           uint32
+}
+
 type Block struct {
 	buf           *bytes.Reader
 	offset        uint64
@@ -107,19 +120,6 @@ func (r *Reader) newHeader(mmap mmap.MMap) (Header, error) {
 	binary.Read(buf, binary.BigEndian, &header.entryCount)
 	binary.Read(buf, binary.BigEndian, &header.compressionCodec)
 	return header, nil
-}
-
-type Header struct {
-	index int
-
-	fileInfoOffset             uint64
-	dataIndexOffset            uint64
-	dataIndexCount             uint32
-	metaIndexOffset            uint64
-	metaIndexCount             uint32
-	totalUncompressedDataBytes uint64
-	entryCount                 uint32
-	compressionCodec           uint32
 }
 
 func (r *Reader) loadIndex(mmap mmap.MMap) error {
