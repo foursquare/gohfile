@@ -37,9 +37,14 @@ type ServerHandler struct {
 }
 
 func (s ServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key, err := ioutil.ReadAll(r.Body)
-	value, err := s.hfile.Get(key)
-	fmt.Fprintf(w, "%s", fmt.Sprintln(value, err))
+	key, _ := ioutil.ReadAll(r.Body)
+	value, found := s.hfile.Get(key)
+	if found {
+		fmt.Fprint(w, value)
+	} else {
+		http.Error(w, "not found", 404)
+	}
+
 }
 
 type Server struct {
