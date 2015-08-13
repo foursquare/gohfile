@@ -14,8 +14,11 @@ import "os"
 import "github.com/golang/snappy"
 
 type Reader struct {
-	mmap      mmap.MMap
-	version   Version
+	mmap mmap.MMap
+
+	majorVersion uint32
+	minorVersion uint32
+
 	header    Header
 	dataIndex DataIndex
 }
@@ -28,12 +31,11 @@ func NewReader(file *os.File) (Reader, error) {
 		return hfile, err
 	}
 
-	versionIndex := len(hfile.mmap) - 4
-	hfile.version, err = newVersion(bytes.NewReader(hfile.mmap[versionIndex:]))
-	if err != nil {
-		return hfile, err
-	}
-	hfile.header, err = hfile.version.newHeader(hfile.mmap)
+	v := binary.BigEndian.Uint32(hfile.mmap[len(hfile.mmap)-4:])
+	hfile.majorVersion = v & 0x00ffffff
+	hfile.minorVersion = v >> 24
+
+	hfile.header, err = hfile.newHeader(hfile.mmap)
 	if err != nil {
 		return hfile, err
 	}
@@ -73,24 +75,10 @@ func (r *Reader) PrintDebugInfo(out io.Writer) {
 	}
 }
 
-type Version struct {
-	buf          *bytes.Reader
-	majorVersion uint32
-	minorVersion uint32
-}
-
-func newVersion(versionBuf *bytes.Reader) (Version, error) {
-	version := Version{buf: versionBuf}
-	var rawByte uint32
-	binary.Read(version.buf, binary.BigEndian, &rawByte)
-	version.majorVersion = rawByte & 0x00ffffff
-	version.minorVersion = rawByte >> 24
-	return version, nil
-}
-func (version *Version) newHeader(mmap mmap.MMap) (Header, error) {
+func (r *Reader) newHeader(mmap mmap.MMap) (Header, error) {
 	header := Header{}
 
-	if version.majorVersion != 1 || version.minorVersion != 0 {
+	if r.majorVersion != 1 || r.minorVersion != 0 {
 		return header, errors.New("wrong version")
 	}
 
