@@ -17,16 +17,16 @@ func (hfile *Reader) NewIterator() *Iterator {
 }
 
 func (it *Iterator) Next() bool {
-	if it.dataBlockIndex >= len(it.hfile.dataIndex.dataBlocks) {
+	if it.dataBlockIndex >= len(it.hfile.index) {
 		return false
 	}
-	dataBlock := it.hfile.dataIndex.dataBlocks[it.dataBlockIndex]
+	dataBlock := it.hfile.index[it.dataBlockIndex]
 	if dataBlock.buf.Len() <= 0 {
 		it.dataBlockIndex += 1
-		if it.dataBlockIndex >= len(it.hfile.dataIndex.dataBlocks) {
+		if it.dataBlockIndex >= len(it.hfile.index) {
 			return false
 		}
-		dataBlock := it.hfile.dataIndex.dataBlocks[it.dataBlockIndex]
+		dataBlock := it.hfile.index[it.dataBlockIndex]
 		dataBlock.reset()
 		return it.Next()
 	}

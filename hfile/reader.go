@@ -4,14 +4,15 @@ package hfile
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
+	"os"
+
+	"github.com/edsrzf/mmap-go"
+	"github.com/golang/snappy"
 )
-import "encoding/binary"
-import "errors"
-import "github.com/edsrzf/mmap-go"
-import "os"
-import "github.com/golang/snappy"
 
 type Reader struct {
 	mmap mmap.MMap
@@ -19,8 +20,15 @@ type Reader struct {
 	majorVersion uint32
 	minorVersion uint32
 
-	header    Header
-	dataIndex DataIndex
+	header Header
+	index  []Block
+}
+
+type Block struct {
+	buf           *bytes.Reader
+	offset        uint64
+	size          uint32
+	firstKeyBytes []byte
 }
 
 func NewReader(file *os.File) (Reader, error) {
@@ -39,17 +47,15 @@ func NewReader(file *os.File) (Reader, error) {
 	if err != nil {
 		return hfile, err
 	}
-	hfile.dataIndex, err = hfile.header.newDataIndex(hfile.mmap)
+	err = hfile.loadIndex(hfile.mmap)
 	if err != nil {
 		return hfile, err
 	}
 
 	return hfile, nil
 }
-func (hfile *Reader) String() string {
-	return "hfile"
-}
-func getDataBlock(key []byte, blocks *[]DataBlock) (*DataBlock, bool) {
+
+func getDataBlock(key []byte, blocks *[]Block) (*Block, bool) {
 	// TODO(dan): Binary search instead.
 	for i := len(*blocks) - 1; i >= 0; i-- {
 		block := (*blocks)[i]
@@ -60,7 +66,7 @@ func getDataBlock(key []byte, blocks *[]DataBlock) (*DataBlock, bool) {
 	return nil, false
 }
 func (hfile *Reader) Get(key []byte) ([]byte, bool) {
-	dataBlock, found := getDataBlock(key, &hfile.dataIndex.dataBlocks)
+	dataBlock, found := getDataBlock(key, &hfile.index)
 	if !found {
 		return nil, false
 	}
@@ -70,8 +76,8 @@ func (hfile *Reader) Get(key []byte) ([]byte, bool) {
 
 func (r *Reader) PrintDebugInfo(out io.Writer) {
 	fmt.Fprintln(out, "entries: ", r.header.entryCount)
-	fmt.Fprintln(out, "blocks: ", len(r.dataIndex.dataBlocks))
-	for i, blk := range r.dataIndex.dataBlocks {
+	fmt.Fprintln(out, "blocks: ", len(r.index))
+	for i, blk := range r.index {
 		fmt.Fprintf(out, "\t#%d: %s (%v)\n", i, blk.firstKeyBytes, blk.firstKeyBytes)
 	}
 }
@@ -116,77 +122,65 @@ type Header struct {
 	compressionCodec           uint32
 }
 
-func (header *Header) newDataIndex(mmap mmap.MMap) (DataIndex, error) {
-	dataIndex := DataIndex{}
-	dataIndexEnd := header.metaIndexOffset
-	if header.metaIndexOffset == 0 {
-		dataIndexEnd = uint64(header.index)
+func (r *Reader) loadIndex(mmap mmap.MMap) error {
+
+	dataIndexEnd := r.header.metaIndexOffset
+	if r.header.metaIndexOffset == 0 {
+		dataIndexEnd = uint64(r.header.index)
 	}
-	dataIndex.buf = bytes.NewReader(mmap[header.dataIndexOffset:dataIndexEnd])
+	buf := bytes.NewReader(mmap[r.header.dataIndexOffset:dataIndexEnd])
 
 	dataIndexMagic := make([]byte, 8)
-	dataIndex.buf.Read(dataIndexMagic)
+	buf.Read(dataIndexMagic)
 	if bytes.Compare(dataIndexMagic, []byte("IDXBLK)+")) != 0 {
-		return dataIndex, errors.New("bad data index magic")
+		return errors.New("bad data index magic")
 	}
 
-	for dataIndex.buf.Len() > 0 {
-		dataBlock := DataBlock{}
+	for buf.Len() > 0 {
+		dataBlock := Block{}
 
-		binary.Read(dataIndex.buf, binary.BigEndian, &dataBlock.offset)
-		binary.Read(dataIndex.buf, binary.BigEndian, &dataBlock.size)
+		binary.Read(buf, binary.BigEndian, &dataBlock.offset)
+		binary.Read(buf, binary.BigEndian, &dataBlock.size)
 
 		switch {
-		case header.compressionCodec == 2: // No compression
+		case r.header.compressionCodec == 2: // No compression
 			dataBlock.buf = bytes.NewReader(mmap[dataBlock.offset : dataBlock.offset+uint64(dataBlock.size)])
-		case header.compressionCodec == 3: // Snappy
+		case r.header.compressionCodec == 3: // Snappy
 			uncompressedByteSize := binary.BigEndian.Uint32(mmap[dataBlock.offset : dataBlock.offset+4])
 			if uncompressedByteSize != dataBlock.size {
-				return dataIndex, errors.New("mismatched uncompressed block size")
+				return errors.New("mismatched uncompressed block size")
 			}
 			compressedByteSize := binary.BigEndian.Uint32(mmap[dataBlock.offset+4 : dataBlock.offset+8])
 			compressedBytes := mmap[dataBlock.offset+8 : dataBlock.offset+8+uint64(compressedByteSize)]
 			uncompressedBytes, err := snappy.Decode(nil, compressedBytes)
 			if err != nil {
-				return dataIndex, err
+				return err
 			}
 			dataBlock.buf = bytes.NewReader(uncompressedBytes)
 		default:
-			return dataIndex, errors.New("Unsupported compression codec " + string(header.compressionCodec))
+			return errors.New("Unsupported compression codec " + string(r.header.compressionCodec))
 		}
 
 		dataBlockMagic := make([]byte, 8)
 		dataBlock.buf.Read(dataBlockMagic)
 		if bytes.Compare(dataBlockMagic, []byte("DATABLK*")) != 0 {
-			return dataIndex, errors.New("bad data block magic")
+			return errors.New("bad data block magic")
 		}
 
-		firstKeyLen, _ := binary.ReadUvarint(dataIndex.buf)
+		firstKeyLen, _ := binary.ReadUvarint(buf)
 		dataBlock.firstKeyBytes = make([]byte, firstKeyLen)
-		dataIndex.buf.Read(dataBlock.firstKeyBytes)
+		buf.Read(dataBlock.firstKeyBytes)
 
-		dataIndex.dataBlocks = append(dataIndex.dataBlocks, dataBlock)
+		r.index = append(r.index, dataBlock)
 	}
 
-	return dataIndex, nil
+	return nil
 }
 
-type DataIndex struct {
-	buf        *bytes.Reader
-	dataBlocks []DataBlock
-}
-
-type DataBlock struct {
-	buf           *bytes.Reader
-	offset        uint64
-	size          uint32
-	firstKeyBytes []byte
-}
-
-func (dataBlock *DataBlock) reset() {
+func (dataBlock *Block) reset() {
 	dataBlock.buf.Seek(8, 0)
 }
-func (dataBlock *DataBlock) get(key []byte, first bool) ([]byte, [][]byte, bool) {
+func (dataBlock *Block) get(key []byte, first bool) ([]byte, [][]byte, bool) {
 	var acc [][]byte
 
 	dataBlock.reset()
