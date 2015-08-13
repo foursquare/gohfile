@@ -96,8 +96,8 @@ func (s *Scanner) GetAll(key []byte) ([][]byte, error) {
 		return nil, err
 	}
 
-	_, found, _ := getValuesFromBuffer(data, key, true)
-	return found, nil
+	_, found, _ := getValuesFromBuffer(data, key, false)
+	return found, err
 }
 
 func getValuesFromBuffer(buf *bytes.Reader, key []byte, first bool) ([]byte, [][]byte, bool) {
