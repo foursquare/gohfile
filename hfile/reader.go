@@ -95,26 +95,26 @@ func (version *Version) newHeader(mmap mmap.MMap) (Header, error) {
 	}
 
 	header.index = len(mmap) - 60
-	header.buf = bytes.NewReader(mmap[header.index:])
+	buf := bytes.NewReader(mmap[header.index:])
+
 	headerMagic := make([]byte, 8)
-	header.buf.Read(headerMagic)
+	buf.Read(headerMagic)
 	if bytes.Compare(headerMagic, []byte("TRABLK\"$")) != 0 {
 		return header, errors.New("bad header magic")
 	}
 
-	binary.Read(header.buf, binary.BigEndian, &header.fileInfoOffset)
-	binary.Read(header.buf, binary.BigEndian, &header.dataIndexOffset)
-	binary.Read(header.buf, binary.BigEndian, &header.dataIndexCount)
-	binary.Read(header.buf, binary.BigEndian, &header.metaIndexOffset)
-	binary.Read(header.buf, binary.BigEndian, &header.metaIndexCount)
-	binary.Read(header.buf, binary.BigEndian, &header.totalUncompressedDataBytes)
-	binary.Read(header.buf, binary.BigEndian, &header.entryCount)
-	binary.Read(header.buf, binary.BigEndian, &header.compressionCodec)
+	binary.Read(buf, binary.BigEndian, &header.fileInfoOffset)
+	binary.Read(buf, binary.BigEndian, &header.dataIndexOffset)
+	binary.Read(buf, binary.BigEndian, &header.dataIndexCount)
+	binary.Read(buf, binary.BigEndian, &header.metaIndexOffset)
+	binary.Read(buf, binary.BigEndian, &header.metaIndexCount)
+	binary.Read(buf, binary.BigEndian, &header.totalUncompressedDataBytes)
+	binary.Read(buf, binary.BigEndian, &header.entryCount)
+	binary.Read(buf, binary.BigEndian, &header.compressionCodec)
 	return header, nil
 }
 
 type Header struct {
-	buf   *bytes.Reader
 	index int
 
 	fileInfoOffset             uint64
