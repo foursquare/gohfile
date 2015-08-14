@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/edsrzf/mmap-go"
@@ -15,8 +16,8 @@ import (
 )
 
 type Reader struct {
-	mmap mmap.MMap
-
+	mmap         mmap.MMap
+	name         string
 	majorVersion uint32
 	minorVersion uint32
 
@@ -43,8 +44,9 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-func NewReader(file *os.File, lock bool) (*Reader, error) {
+func NewReader(name string, file *os.File, lock bool) (*Reader, error) {
 	hfile := new(Reader)
+	hfile.name = name
 	var err error
 	hfile.mmap, err = mmap.Map(file, mmap.RDONLY, 0)
 	if err != nil {
@@ -52,9 +54,13 @@ func NewReader(file *os.File, lock bool) (*Reader, error) {
 	}
 
 	if lock {
+		log.Printf("[Reader.NewReader] locking %s...\n", hfile.name)
 		if err = hfile.mmap.Lock(); err != nil {
+			log.Printf("[Reader.NewReader] error locking %s: %s\n", hfile.name, err.Error())
 			return nil, err
 		}
+		log.Printf("[Reader.NewReader] locked %s.\n", hfile.name)
+
 	}
 
 	v := binary.BigEndian.Uint32(hfile.mmap[len(hfile.mmap)-4:])

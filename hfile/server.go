@@ -69,7 +69,7 @@ func NewServer(configs ServerConfigs) (Server, error) {
 		if err != nil {
 			return s, err
 		}
-		handler.hfile, err = NewReader(file, false)
+		handler.hfile, err = NewReader(config.Name, file, false)
 		if err != nil {
 			return s, err
 		}
