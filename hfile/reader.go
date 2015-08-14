@@ -43,12 +43,18 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-func NewReader(file *os.File) (*Reader, error) {
+func NewReader(file *os.File, lock bool) (*Reader, error) {
 	hfile := new(Reader)
 	var err error
 	hfile.mmap, err = mmap.Map(file, mmap.RDONLY, 0)
 	if err != nil {
 		return hfile, err
+	}
+
+	if lock {
+		if err = hfile.mmap.Lock(); err != nil {
+			return nil, err
+		}
 	}
 
 	v := binary.BigEndian.Uint32(hfile.mmap[len(hfile.mmap)-4:])
