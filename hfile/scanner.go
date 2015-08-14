@@ -73,7 +73,7 @@ func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
 	}
 
 	idx := s.findBlock(key)
-	log.Printf("[Scanner.blockFor] findBlock key: %s. Picked %d (starts: %s). Cur: %d (starts: %s)\n",
+	log.Printf("[Scanner.blockFor] findBlock (key: %s) picked %d (starts: %s). Cur: %d (starts: %s)\n",
 		hex.EncodeToString(key),
 		idx,
 		hex.EncodeToString(s.reader.index[idx].firstKeyBytes),
@@ -94,6 +94,8 @@ func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
 		}
 		s.idx = idx
 		s.buf = data
+	} else {
+		log.Println("[Scanner.blockFor] Re-using current block")
 	}
 
 	return s.buf, nil, true
@@ -126,6 +128,7 @@ func (s *Scanner) GetAll(key []byte) ([][]byte, error) {
 func getValuesFromBuffer(buf *bytes.Reader, key []byte, first bool) ([]byte, [][]byte, bool) {
 	var acc [][]byte
 
+	log.Printf("[Scanner.getValuesFromBuffer] buf before %d\n", buf.Len())
 	for buf.Len() > 0 {
 		var keyLen, valLen uint32
 		binary.Read(buf, binary.BigEndian, &keyLen)
@@ -134,14 +137,25 @@ func getValuesFromBuffer(buf *bytes.Reader, key []byte, first bool) ([]byte, [][
 		valBytes := make([]byte, valLen)
 		buf.Read(keyBytes)
 		buf.Read(valBytes)
-		if bytes.Compare(key, keyBytes) == 0 {
+		cmp := bytes.Compare(keyBytes, key)
+		if cmp == 0 {
 			if first {
+				log.Printf("[Scanner.getValuesFromBuffer] buf after %d\n", buf.Len())
 				return valBytes, nil, true
 			} else {
 				acc = append(acc, valBytes)
 			}
 		}
+		if cmp > 0 {
+			log.Printf("[Scanner.getValuesFromBuffer] past key %s vs %s. buf remaining %d\n",
+				hex.EncodeToString(key),
+				hex.EncodeToString(keyBytes),
+				buf.Len(),
+			)
+			buf.Seek(-(int64(keyLen + valLen + 8)), 1)
+			return nil, acc, len(acc) > 0
+		}
 	}
-
+	log.Printf("[Scanner.getValuesFromBuffer] walked off block\n")
 	return nil, acc, len(acc) > 0
 }
