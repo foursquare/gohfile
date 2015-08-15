@@ -79,4 +79,18 @@ func TestIterator(t *testing.T) {
 	requireTrue(t, err, "next.2", ok)
 	requireSame(t, err, "it.Key.2", i.Key(), secondSampleKey)
 	requireSame(t, err, "it.Value.2", i.Value(), secondSampleValue)
+
+	err = i.Seek(bigSampleKey)
+	if err != nil {
+		t.Error(err)
+	}
+	requireSame(t, err, "it.Key.3", i.Key(), bigSampleKey)
+	requireSame(t, err, "it.Value.3", i.Value(), bigSampleValue)
+
+	err = i.Seek(biggerSampleKey)
+	if err != nil {
+		t.Error(err)
+	}
+	requireSame(t, err, "it.Key.4", i.Key(), biggerSampleKey)
+	requireSame(t, err, "it.Value.4", i.Value(), biggerSampleValue)
 }

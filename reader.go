@@ -162,8 +162,12 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 	return nil
 }
 
+func After(a, b []byte) bool {
+	return bytes.Compare(a, b) > 0
+}
+
 func (b *Block) IsAfter(key []byte) bool {
-	return bytes.Compare(b.firstKeyBytes, key) > 0
+	return After(b.firstKeyBytes, key)
 }
 
 func (r *Reader) FindBlock(from int, key []byte) int {
