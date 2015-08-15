@@ -17,7 +17,6 @@ import (
 
 type Reader struct {
 	mmap         mmap.MMap
-	name         string
 	majorVersion uint32
 	minorVersion uint32
 
@@ -46,23 +45,38 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-func NewReader(name string, file *os.File, lock, debug bool) (*Reader, error) {
+type CollectionConfig struct {
+	Name  string
+	Path  string
+	Mlock bool
+}
+
+func NewReaderFromConfig(cfg *CollectionConfig, debug bool) (*Reader, error) {
+	return NewReader(cfg.Name, cfg.Path, cfg.Mlock, debug)
+}
+
+func NewReader(name, path string, lock, debug bool) (*Reader, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY, 0)
+
+	if err != nil {
+		return nil, err
+	}
+
 	hfile := new(Reader)
 	hfile.debug = debug
-	hfile.name = name
-	var err error
-	hfile.mmap, err = mmap.Map(file, mmap.RDONLY, 0)
+
+	hfile.mmap, err = mmap.Map(f, mmap.RDONLY, 0)
 	if err != nil {
 		return hfile, err
 	}
 
 	if lock {
-		log.Printf("[Reader.NewReader] locking %s...\n", hfile.name)
+		log.Printf("[Reader.NewReader] locking %s...\n", name)
 		if err = hfile.mmap.Lock(); err != nil {
-			log.Printf("[Reader.NewReader] error locking %s: %s\n", hfile.name, err.Error())
+			log.Printf("[Reader.NewReader] error locking %s: %s\n", name, err.Error())
 			return nil, err
 		}
-		log.Printf("[Reader.NewReader] locked %s.\n", hfile.name)
+		log.Printf("[Reader.NewReader] locked %s.\n", name)
 
 	}
 
