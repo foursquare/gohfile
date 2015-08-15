@@ -6,33 +6,24 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"log"
 )
 
 type Scanner struct {
-	reader  *Reader
-	idx     int
-	buf     *bytes.Reader
-	lastKey *[]byte
+	reader *Reader
+	idx    int
+	buf    *bytes.Reader
+	OrderedLookups
 }
 
 func NewScanner(r *Reader) *Scanner {
-	return &Scanner{r, 0, nil, nil}
+	return &Scanner{r, 0, nil, OrderedLookups{nil}}
 }
 
 func (s *Scanner) Reset() {
 	s.idx = 0
 	s.buf = nil
-	s.lastKey = nil
-}
-
-func (s *Scanner) CheckIfKeyOutOfOrder(key []byte) error {
-	if s.lastKey != nil && bytes.Compare(*s.lastKey, key) > 0 {
-		return fmt.Errorf("Keys our of order! %v > %v", *s.lastKey, key)
-	}
-	s.lastKey = &key
-	return nil
+	s.ResetState()
 }
 
 func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
