@@ -23,6 +23,8 @@ type Reader struct {
 
 	header Header
 	index  []Block
+
+	debug bool
 }
 
 type Header struct {
@@ -44,8 +46,9 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-func NewReader(name string, file *os.File, lock bool) (*Reader, error) {
+func NewReader(name string, file *os.File, lock, debug bool) (*Reader, error) {
 	hfile := new(Reader)
+	hfile.debug = debug
 	hfile.name = name
 	var err error
 	hfile.mmap, err = mmap.Map(file, mmap.RDONLY, 0)
