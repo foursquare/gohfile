@@ -18,8 +18,8 @@ type Scanner struct {
 	lastKey *[]byte
 }
 
-func NewScanner(r *Reader) Scanner {
-	return Scanner{r, 0, nil, nil}
+func NewScanner(r *Reader) *Scanner {
+	return &Scanner{r, 0, nil, nil}
 }
 
 func (s *Scanner) Reset() {

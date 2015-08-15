@@ -20,13 +20,18 @@ func (hfile *Reader) NewIterator() *Iterator {
 	return &it
 }
 
-func (it *Iterator) Next() bool {
+func (it *Iterator) Next() (bool, error) {
+	var err error
+
 	if it.dataBlockIndex >= len(it.hfile.index) {
-		return false
+		return false, nil
 	}
 
 	if it.block == nil {
-		it.block, _ = it.hfile.GetBlock(it.dataBlockIndex)
+		it.block, err = it.hfile.GetBlock(it.dataBlockIndex)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	if it.block.Len() <= 0 {
@@ -41,7 +46,7 @@ func (it *Iterator) Next() bool {
 	it.value = make([]byte, valLen)
 	it.block.Read(it.key)
 	it.block.Read(it.value)
-	return true
+	return true, nil
 }
 
 func (it *Iterator) Key() []byte {
