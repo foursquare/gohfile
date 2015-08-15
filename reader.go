@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 
 	"github.com/edsrzf/mmap-go"
 	"github.com/golang/snappy"
@@ -163,6 +164,33 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 
 func (b *Block) IsAfter(key []byte) bool {
 	return bytes.Compare(b.firstKeyBytes, key) > 0
+}
+
+func (r *Reader) FindBlock(from int, key []byte) int {
+	remaining := len(r.index) - from - 1
+	if r.debug {
+		log.Printf("[Reader.findBlock] cur %d, remaining %d\n", from, remaining)
+	}
+
+	if remaining <= 0 {
+		if r.debug {
+			log.Println("[Reader.findBlock] last block")
+		}
+		return from // s.cur is the last block, so it is only choice.
+	}
+
+	if r.index[from+1].IsAfter(key) {
+		if r.debug {
+			log.Println("[Reader.findBlock] next block is past key")
+		}
+		return from
+	}
+
+	offset := sort.Search(remaining, func(i int) bool {
+		return r.index[from+i+1].IsAfter(key)
+	})
+
+	return from + offset
 }
 
 func (r *Reader) GetBlock(i int) (*bytes.Reader, error) {

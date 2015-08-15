@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"sort"
 )
 
 type Scanner struct {
@@ -26,33 +25,6 @@ func (s *Scanner) Reset() {
 	s.idx = 0
 	s.buf = nil
 	s.lastKey = nil
-}
-
-func (s *Scanner) findBlock(key []byte) int {
-	remaining := len(s.reader.index) - s.idx - 1
-	if s.reader.debug {
-		log.Printf("[Scanner.findBlock] cur %d, remaining %d\n", s.idx, remaining)
-	}
-
-	if remaining <= 0 {
-		if s.reader.debug {
-			log.Println("[Scanner.findBlock] last block")
-		}
-		return s.idx // s.cur is the last block, so it is only choice.
-	}
-
-	if s.reader.index[s.idx+1].IsAfter(key) {
-		if s.reader.debug {
-			log.Println("[Scanner.findBlock] next block is past key")
-		}
-		return s.idx
-	}
-
-	offset := sort.Search(remaining, func(i int) bool {
-		return s.reader.index[s.idx+i+1].IsAfter(key)
-	})
-
-	return s.idx + offset
 }
 
 func (s *Scanner) CheckIfKeyOutOfOrder(key []byte) error {
@@ -80,7 +52,7 @@ func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
 		return nil, nil, false
 	}
 
-	idx := s.findBlock(key)
+	idx := s.reader.FindBlock(s.idx, key)
 	if s.reader.debug {
 		log.Printf("[Scanner.blockFor] findBlock (key: %s) picked %d (starts: %s). Cur: %d (starts: %s)\n",
 			hex.EncodeToString(key),
