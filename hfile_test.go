@@ -108,18 +108,28 @@ func TestSinglePrefix(t *testing.T) {
 		t.Error(err)
 	}
 
+	if len(res) != 256 {
+		t.Fatalf("Wrong number of matched keys: %d instead of %d", len(res), 256)
+	}
+
 	k := string([]byte{0, 0, 1, 255})
 	if v, ok := res[k]; !ok {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
-		requireSame(t, nil, "prefix hit", v, []byte("~511"))
+		if len(v) != 1 {
+			t.Fatalf("Wrong number of results for ~511: %d (%v)", len(v), v)
+		}
+		requireSame(t, nil, "prefix hit 511", v[0], []byte("~511"))
 	}
 
 	k = string([]byte{0, 0, 1, 0})
 	if v, ok := res[k]; !ok {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
-		requireSame(t, nil, "prefix hit", v, []byte("~256"))
+		if len(v) != 1 {
+			t.Fatalf("Wrong number of results for ~256: %d (%v)", len(v), v)
+		}
+		requireSame(t, nil, "prefix hit 256", v[0], []byte("~256"))
 	}
 
 	k = string([]byte{0, 0, 0, 255})
@@ -136,6 +146,6 @@ func TestSinglePrefix(t *testing.T) {
 	if v, ok := res[k]; !ok {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
-		requireSame(t, nil, "prefix hit", v, []byte("~286"))
+		requireSame(t, nil, "prefix hit 286", v[0], []byte("~286"))
 	}
 }

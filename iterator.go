@@ -118,8 +118,8 @@ func (it *Iterator) Value() []byte {
 	return it.value
 }
 
-func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][]byte, error) {
-	res := make(map[string][]byte)
+func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error) {
+	res := make(map[string][][]byte)
 
 	var err error
 
@@ -129,10 +129,19 @@ func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][]byte, error) 
 			return nil, err
 		}
 
+		acc := make([][]byte, 0, 1)
+
 		for ok && bytes.HasPrefix(it.Key(), prefix) {
-			res[string(it.Key())] = it.Value()
+			prev := it.Key()
+			acc = append(acc, it.Value())
+
 			if ok, err = it.Next(); err != nil {
 				return nil, err
+			}
+
+			if !ok || !bytes.Equal(prev, it.Key()) {
+				res[string(prev)] = acc
+				acc = make([][]byte, 0, 1)
 			}
 		}
 	}
