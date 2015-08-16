@@ -5,6 +5,11 @@ import (
 	"testing"
 )
 
+// The sample file `smaple/pairs.hfile` pairs of integers to strings
+// The keys are sequential integers represented as 4 bytes (big-endian).
+// The values are strings, containing ascii bytes of the string "~x", where x is the key's integer value.
+// Thus, the 34th k-v pair has key 00 00 00 1C and value 7E 31 38 ("~18").
+
 var firstSampleKey = []byte{0, 0, 0, 1}
 var firstSampleValue = []byte("~1")
 
@@ -95,7 +100,7 @@ func TestIterator(t *testing.T) {
 	requireSame(t, err, "it.Value.4", i.Value(), biggerSampleValue)
 }
 
-func TestPrefixes(t *testing.T) {
+func TestSinglePrefix(t *testing.T) {
 	i := sampleIterator(t)
 
 	res, err := i.AllForPrfixes([][]byte{[]byte{0, 0, 1}})
