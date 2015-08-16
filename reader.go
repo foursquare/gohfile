@@ -46,12 +46,6 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-type CollectionConfig struct {
-	Name  string
-	Path  string
-	Mlock bool
-}
-
 func NewReaderFromConfig(cfg *CollectionConfig, debug bool) (*Reader, error) {
 	return NewReader(cfg.Name, cfg.Path, cfg.Mlock, debug)
 }
