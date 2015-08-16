@@ -22,18 +22,18 @@ func (hfile *Reader) NewIterator() *Iterator {
 	return &it
 }
 
-func (it *Iterator) Seek(key []byte) error {
+func (it *Iterator) Seek(key []byte) (bool, error) {
 	var err error
 
 	if err = it.CheckIfKeyOutOfOrder(key); err != nil {
-		return err
+		return false, err
 	}
 
 	if it.key != nil && After(it.key, key) {
 		if it.hfile.debug {
 			log.Println("[Iterator.Seek] already past")
 		}
-		return nil
+		return true, nil
 	}
 
 	blk := it.hfile.FindBlock(it.dataBlockIndex, key)
@@ -51,7 +51,7 @@ func (it *Iterator) Seek(key []byte) error {
 
 	ok, err := it.Next()
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if it.hfile.debug {
@@ -64,8 +64,10 @@ func (it *Iterator) Seek(key []byte) error {
 		if err == nil && after {
 			ok, err = it.Next()
 		} else {
-			log.Printf("[Iterator.Seek] done %v (err %v)\n", it.Key(), err)
-			return err
+			if it.hfile.debug {
+				log.Printf("[Iterator.Seek] done %v (err %v)\n", it.Key(), err)
+			}
+			return ok, err
 		}
 	}
 
@@ -73,11 +75,14 @@ func (it *Iterator) Seek(key []byte) error {
 		log.Println("[Iterator.Seek] walked off block")
 	}
 
-	return err
+	return ok, err
 }
 
 func (it *Iterator) Next() (bool, error) {
 	var err error
+
+	it.key = nil
+	it.value = nil
 
 	if it.dataBlockIndex >= len(it.hfile.index) {
 		return false, nil
@@ -111,4 +116,25 @@ func (it *Iterator) Key() []byte {
 
 func (it *Iterator) Value() []byte {
 	return it.value
+}
+
+func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][]byte, error) {
+	res := make(map[string][]byte)
+
+	var err error
+
+	for _, prefix := range prefixes {
+		ok := false
+		if ok, err = it.Seek(prefix); err != nil {
+			return nil, err
+		}
+
+		for ok && bytes.HasPrefix(it.Key(), prefix) {
+			res[string(it.Key())] = it.Value()
+			if ok, err = it.Next(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return res, nil
 }

@@ -80,17 +80,57 @@ func TestIterator(t *testing.T) {
 	requireSame(t, err, "it.Key.2", i.Key(), secondSampleKey)
 	requireSame(t, err, "it.Value.2", i.Value(), secondSampleValue)
 
-	err = i.Seek(bigSampleKey)
+	ok, err = i.Seek(bigSampleKey)
 	if err != nil {
 		t.Error(err)
 	}
 	requireSame(t, err, "it.Key.3", i.Key(), bigSampleKey)
 	requireSame(t, err, "it.Value.3", i.Value(), bigSampleValue)
 
-	err = i.Seek(biggerSampleKey)
+	ok, err = i.Seek(biggerSampleKey)
 	if err != nil {
 		t.Error(err)
 	}
 	requireSame(t, err, "it.Key.4", i.Key(), biggerSampleKey)
 	requireSame(t, err, "it.Value.4", i.Value(), biggerSampleValue)
+}
+
+func TestPrefixes(t *testing.T) {
+	i := sampleIterator(t)
+
+	res, err := i.AllForPrfixes([][]byte{[]byte{0, 0, 1}})
+	if err != nil {
+		t.Error(err)
+	}
+
+	k := string([]byte{0, 0, 1, 255})
+	if v, ok := res[k]; !ok {
+		t.Fatalf("Key %v not in res %v", k, res)
+	} else {
+		requireSame(t, nil, "prefix hit", v, []byte("~511"))
+	}
+
+	k = string([]byte{0, 0, 1, 0})
+	if v, ok := res[k]; !ok {
+		t.Fatalf("Key %v not in res %v", k, res)
+	} else {
+		requireSame(t, nil, "prefix hit", v, []byte("~256"))
+	}
+
+	k = string([]byte{0, 0, 0, 255})
+	if _, ok := res[k]; ok {
+		t.Fatalf("Key %v should not be in res %v", k, res)
+	}
+
+	k = string([]byte{0, 0, 2, 0})
+	if _, ok := res[k]; ok {
+		t.Fatalf("Key %v should not be in res %v", k, res)
+	}
+
+	k = string([]byte{0, 0, 1, 30})
+	if v, ok := res[k]; !ok {
+		t.Fatalf("Key %v not in res %v", k, res)
+	} else {
+		requireSame(t, nil, "prefix hit", v, []byte("~286"))
+	}
 }
