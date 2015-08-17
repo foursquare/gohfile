@@ -72,7 +72,8 @@ func NewReader(name, path string, lock, debug bool) (*Reader, error) {
 			return nil, err
 		}
 		log.Printf("[Reader.NewReader] locked %s.\n", name)
-
+	} else if debug {
+		log.Printf("[Reader.NewReader] Not locking %s...\n", name)
 	}
 
 	v := binary.BigEndian.Uint32(hfile.mmap[len(hfile.mmap)-4:])
