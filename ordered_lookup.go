@@ -13,6 +13,10 @@ func (s *OrderedOps) ResetState() {
 	s.LastKey = nil
 }
 
+func (s *OrderedOps) Same(key []byte) bool {
+	return s.LastKey != nil && bytes.Equal(*s.LastKey, key)
+}
+
 func (s *OrderedOps) CheckIfKeyOutOfOrder(key []byte) error {
 	if s.LastKey != nil && bytes.Compare(*s.LastKey, key) > 0 {
 		return fmt.Errorf("Keys out of order! %v > %v", *s.LastKey, key)
