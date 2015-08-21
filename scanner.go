@@ -13,11 +13,11 @@ type Scanner struct {
 	reader *Reader
 	idx    int
 	buf    *bytes.Reader
-	OrderedLookups
+	OrderedOps
 }
 
 func NewScanner(r *Reader) *Scanner {
-	return &Scanner{r, 0, nil, OrderedLookups{nil}}
+	return &Scanner{r, 0, nil, OrderedOps{nil}}
 }
 
 func (s *Scanner) Reset() {

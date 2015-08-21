@@ -14,11 +14,11 @@ type Iterator struct {
 	block          *bytes.Reader
 	key            []byte
 	value          []byte
-	OrderedLookups
+	OrderedOps
 }
 
 func (hfile *Reader) NewIterator() *Iterator {
-	it := Iterator{hfile, 0, nil, nil, nil, OrderedLookups{nil}}
+	it := Iterator{hfile, 0, nil, nil, nil, OrderedOps{nil}}
 	return &it
 }
 

@@ -5,18 +5,18 @@ import (
 	"fmt"
 )
 
-type OrderedLookups struct {
-	lastKey *[]byte
+type OrderedOps struct {
+	LastKey *[]byte
 }
 
-func (s *OrderedLookups) ResetState() {
-	s.lastKey = nil
+func (s *OrderedOps) ResetState() {
+	s.LastKey = nil
 }
 
-func (s *OrderedLookups) CheckIfKeyOutOfOrder(key []byte) error {
-	if s.lastKey != nil && bytes.Compare(*s.lastKey, key) > 0 {
-		return fmt.Errorf("Keys our of order! %v > %v", *s.lastKey, key)
+func (s *OrderedOps) CheckIfKeyOutOfOrder(key []byte) error {
+	if s.LastKey != nil && bytes.Compare(*s.LastKey, key) > 0 {
+		return fmt.Errorf("Keys out of order! %v > %v", *s.LastKey, key)
 	}
-	s.lastKey = &key
+	s.LastKey = &key
 	return nil
 }
