@@ -40,64 +40,109 @@ func sampleIterator(t *testing.T) *Iterator {
 	return sampleReader(t).NewIterator()
 }
 
-func requireSame(t *testing.T, err error, what string, actual []byte, expected []byte) {
-	if err != nil {
-		t.Error(err)
-	}
-	if !bytes.Equal(actual, expected) {
-		t.Fatalf("%s returned '%v', expected '%v'\n", what, actual, expected)
-	}
-}
-
-func requireTrue(t *testing.T, err error, what string, v bool) {
-	if !v {
-		t.Fatalf("%s is not true", what)
-	}
-}
-
 func TestFirstKeys(t *testing.T) {
 	r := sampleReader(t)
-	requireSame(t, nil, "block0.firstKey", r.index[0].firstKeyBytes, firstSampleKey)
-	requireSame(t, nil, "block1.firstKey", r.index[1].firstKeyBytes, secondSampleBlockKey)
+	if !bytes.Equal(r.index[0].firstKeyBytes, firstSampleKey) {
+		t.Fatalf("'%v', expected '%v'\n", r.index[0].firstKeyBytes, firstSampleKey)
+	}
+	if !bytes.Equal(r.index[1].firstKeyBytes, secondSampleBlockKey) {
+		t.Fatalf("'%v', expected '%v'\n", r.index[1].firstKeyBytes, secondSampleBlockKey)
+	}
 }
 
 func TestGetFirst(t *testing.T) {
 	s := sampleScanner(t)
-	v, err, _ := s.GetFirst(firstSampleKey)
-	requireSame(t, err, "GetFirst.1", v, firstSampleValue)
+	var actual []byte
+	var err error
 
-	v, err, _ = s.GetFirst(bigSampleKey)
-	requireSame(t, err, "GetFirst.3", v, bigSampleValue)
+	actual, err, _ = s.GetFirst(firstSampleKey)
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal(actual, firstSampleValue) {
+		t.Fatalf("'%v', expected '%v'\n", actual, firstSampleValue)
+	}
 
-	v, err, _ = s.GetFirst(biggerSampleKey)
-	requireSame(t, err, "GetFirst.4", v, biggerSampleValue)
+	actual, err, _ = s.GetFirst(bigSampleKey)
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal(actual, bigSampleValue) {
+		t.Fatalf("'%v', expected '%v'\n", actual, bigSampleValue)
+	}
+
+	actual, err, _ = s.GetFirst(biggerSampleKey)
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal(actual, biggerSampleValue) {
+		t.Fatalf("'%v', expected '%v'\n", actual, biggerSampleValue)
+	}
+
 }
 
 func TestIterator(t *testing.T) {
 	i := sampleIterator(t)
 	ok, err := i.Next()
-	requireTrue(t, err, "next", ok)
-	requireSame(t, err, "it.Key", i.Key(), firstSampleKey)
-	requireSame(t, err, "it.Value", i.Value(), firstSampleValue)
+
+	if err != nil {
+		t.Error(err)
+	}
+	if !ok {
+		t.Fatal("next is not true")
+	}
+
+	if !bytes.Equal(i.Key(), firstSampleKey) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), firstSampleKey)
+	}
+	if !bytes.Equal(i.Value(), firstSampleValue) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), firstSampleValue)
+	}
 
 	ok, err = i.Next()
-	requireTrue(t, err, "next.2", ok)
-	requireSame(t, err, "it.Key.2", i.Key(), secondSampleKey)
-	requireSame(t, err, "it.Value.2", i.Value(), secondSampleValue)
+	if err != nil {
+		t.Error(err)
+	}
+	if !ok {
+		t.Fatal("next is not true")
+	}
+
+	if !bytes.Equal(i.Key(), secondSampleKey) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), secondSampleKey)
+	}
+	if !bytes.Equal(i.Value(), secondSampleValue) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), secondSampleValue)
+	}
 
 	ok, err = i.Seek(bigSampleKey)
 	if err != nil {
 		t.Error(err)
 	}
-	requireSame(t, err, "it.Key.3", i.Key(), bigSampleKey)
-	requireSame(t, err, "it.Value.3", i.Value(), bigSampleValue)
+	if !ok {
+		t.Fatal("seek is not true")
+	}
+
+	if !bytes.Equal(i.Key(), bigSampleKey) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), bigSampleKey)
+	}
+	if !bytes.Equal(i.Value(), bigSampleValue) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), bigSampleValue)
+	}
 
 	ok, err = i.Seek(biggerSampleKey)
 	if err != nil {
 		t.Error(err)
 	}
-	requireSame(t, err, "it.Key.4", i.Key(), biggerSampleKey)
-	requireSame(t, err, "it.Value.4", i.Value(), biggerSampleValue)
+	if !ok {
+		t.Fatal("seek is not true")
+	}
+
+	if !bytes.Equal(i.Key(), biggerSampleKey) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), biggerSampleKey)
+	}
+	if !bytes.Equal(i.Value(), biggerSampleValue) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), biggerSampleValue)
+	}
 }
 
 func TestSinglePrefix(t *testing.T) {
@@ -119,7 +164,9 @@ func TestSinglePrefix(t *testing.T) {
 		if len(v) != 1 {
 			t.Fatalf("Wrong number of results for ~511: %d (%v)", len(v), v)
 		}
-		requireSame(t, nil, "prefix hit 511", v[0], []byte("~511"))
+		if !bytes.Equal(v[0], []byte("~511")) {
+			t.Fail()
+		}
 	}
 
 	k = string([]byte{0, 0, 1, 0})
@@ -129,7 +176,9 @@ func TestSinglePrefix(t *testing.T) {
 		if len(v) != 1 {
 			t.Fatalf("Wrong number of results for ~256: %d (%v)", len(v), v)
 		}
-		requireSame(t, nil, "prefix hit 256", v[0], []byte("~256"))
+		if !bytes.Equal(v[0], []byte("~256")) {
+			t.Fail()
+		}
 	}
 
 	k = string([]byte{0, 0, 0, 255})
@@ -146,6 +195,8 @@ func TestSinglePrefix(t *testing.T) {
 	if v, ok := res[k]; !ok {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
-		requireSame(t, nil, "prefix hit 286", v[0], []byte("~286"))
+		if !bytes.Equal(v[0], []byte("~286")) {
+			t.Fail()
+		}
 	}
 }
