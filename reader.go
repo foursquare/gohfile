@@ -112,7 +112,7 @@ func (r *Reader) newHeader(mmap mmap.MMap) (Header, error) {
 
 	headerMagic := make([]byte, 8)
 	buf.Read(headerMagic)
-	if bytes.Compare(headerMagic, []byte("TRABLK\"$")) != 0 {
+	if bytes.Compare(headerMagic, TrailerMagic) != 0 {
 		return header, errors.New("bad header magic")
 	}
 
@@ -137,7 +137,7 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 
 	dataIndexMagic := make([]byte, 8)
 	buf.Read(dataIndexMagic)
-	if bytes.Compare(dataIndexMagic, []byte("IDXBLK)+")) != 0 {
+	if bytes.Compare(dataIndexMagic, IndexMagic) != 0 {
 		return errors.New("bad data index magic")
 	}
 
@@ -197,10 +197,10 @@ func (r *Reader) GetBlock(i int) (*bytes.Reader, error) {
 
 	block := r.index[i]
 
-	switch {
-	case r.header.compressionCodec == 2: // No compression
+	switch r.header.compressionCodec {
+	case CompressionNone:
 		buf = bytes.NewReader(r.mmap[block.offset : block.offset+uint64(block.size)])
-	case r.header.compressionCodec == 3: // Snappy
+	case CompressionSnappy:
 		uncompressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset : block.offset+4])
 		if uncompressedByteSize != block.size {
 			return nil, errors.New("mismatched uncompressed block size")
@@ -218,7 +218,7 @@ func (r *Reader) GetBlock(i int) (*bytes.Reader, error) {
 
 	dataBlockMagic := make([]byte, 8)
 	buf.Read(dataBlockMagic)
-	if bytes.Compare(dataBlockMagic, []byte("DATABLK*")) != 0 {
+	if bytes.Compare(dataBlockMagic, DataMagic) != 0 {
 		return nil, errors.New("bad data block magic")
 	}
 
