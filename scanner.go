@@ -123,6 +123,9 @@ func (s *Scanner) getValuesFromBuffer(buf *bytes.Reader, key []byte, first bool)
 		buf.Read(valBytes)
 		cmp := bytes.Compare(keyBytes, key)
 		if cmp == 0 {
+			if s.reader.debug {
+				log.Printf("[Scanner.getValuesFromBuffer] found! '%s'\n", hex.EncodeToString(key))
+			}
 			if first {
 				if s.reader.debug {
 					log.Printf("[Scanner.getValuesFromBuffer] buf after %d\n", buf.Len())
