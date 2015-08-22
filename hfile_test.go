@@ -27,7 +27,7 @@ var biggerSampleValue = []byte("~65537")
 func sampleReader(t *testing.T) *Reader {
 	reader, err := NewReader("sample", "sample/pairs.hfile", false, testing.Verbose())
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error creating reader:", err)
 	}
 	return reader
 }
@@ -57,7 +57,7 @@ func TestGetFirst(t *testing.T) {
 
 	actual, err, _ = s.GetFirst(firstSampleKey)
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error finding key:", err)
 	}
 	if !bytes.Equal(actual, firstSampleValue) {
 		t.Fatalf("'%v', expected '%v'\n", actual, firstSampleValue)
@@ -65,7 +65,7 @@ func TestGetFirst(t *testing.T) {
 
 	actual, err, _ = s.GetFirst(bigSampleKey)
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error finding key:", err)
 	}
 	if !bytes.Equal(actual, bigSampleValue) {
 		t.Fatalf("'%v', expected '%v'\n", actual, bigSampleValue)
@@ -73,12 +73,11 @@ func TestGetFirst(t *testing.T) {
 
 	actual, err, _ = s.GetFirst(biggerSampleKey)
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error finding key:", err)
 	}
 	if !bytes.Equal(actual, biggerSampleValue) {
 		t.Fatalf("'%v', expected '%v'\n", actual, biggerSampleValue)
 	}
-
 }
 
 func TestIterator(t *testing.T) {
@@ -86,7 +85,7 @@ func TestIterator(t *testing.T) {
 	ok, err := i.Next()
 
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error in next:", err)
 	}
 	if !ok {
 		t.Fatal("next is not true")
@@ -101,7 +100,7 @@ func TestIterator(t *testing.T) {
 
 	ok, err = i.Next()
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error in next:", err)
 	}
 	if !ok {
 		t.Fatal("next is not true")
@@ -116,7 +115,7 @@ func TestIterator(t *testing.T) {
 
 	ok, err = i.Seek(bigSampleKey)
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error in seek:", err)
 	}
 	if !ok {
 		t.Fatal("seek is not true")
@@ -131,7 +130,7 @@ func TestIterator(t *testing.T) {
 
 	ok, err = i.Seek(biggerSampleKey)
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error in seek:", err)
 	}
 	if !ok {
 		t.Fatal("seek is not true")
@@ -150,7 +149,7 @@ func TestSinglePrefix(t *testing.T) {
 
 	res, err := i.AllForPrfixes([][]byte{[]byte{0, 0, 1}})
 	if err != nil {
-		t.Error(err)
+		t.Fatal("error finding all for prefixes:", err)
 	}
 
 	if len(res) != 256 {
@@ -165,7 +164,7 @@ func TestSinglePrefix(t *testing.T) {
 			t.Fatalf("Wrong number of results for ~511: %d (%v)", len(v), v)
 		}
 		if !bytes.Equal(v[0], []byte("~511")) {
-			t.Fail()
+			t.Fatal("bad value:", v[0])
 		}
 	}
 
@@ -177,7 +176,7 @@ func TestSinglePrefix(t *testing.T) {
 			t.Fatalf("Wrong number of results for ~256: %d (%v)", len(v), v)
 		}
 		if !bytes.Equal(v[0], []byte("~256")) {
-			t.Fail()
+			t.Fatal("bad value:", v[0])
 		}
 	}
 
@@ -196,7 +195,7 @@ func TestSinglePrefix(t *testing.T) {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
 		if !bytes.Equal(v[0], []byte("~286")) {
-			t.Fail()
+			t.Fatal("bad value:", v[0])
 		}
 	}
 }
