@@ -23,6 +23,10 @@ func LoadCollections(collections []CollectionConfig, debug bool) (*CollectionSet
 	cs := new(CollectionSet)
 	cs.Collections = make(map[string]Collection)
 
+	if len(collections) < 1 {
+		return nil, fmt.Errorf("no collections to load!")
+	}
+
 	for _, cfg := range collections {
 		reader, err := NewReaderFromConfig(&cfg, debug)
 		if err != nil {

@@ -61,12 +61,19 @@ func NewReader(name, path string, lock, debug bool) (*Reader, error) {
 	hfile.debug = debug
 
 	hfile.mmap, err = mmap.Map(f, mmap.RDONLY, 0)
+
 	if err != nil {
-		return hfile, err
+		return nil, err
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
 	}
 
 	if lock {
-		log.Printf("[Reader.NewReader] locking %s...\n", name)
+		mb := 1024.0 * 1024.0
+		log.Printf("[Reader.NewReader] locking %s (%.02fmb)...\n", name, float64(fi.Size())/mb)
 		if err = hfile.mmap.Lock(); err != nil {
 			log.Printf("[Reader.NewReader] error locking %s: %s\n", name, err.Error())
 			return nil, err
@@ -104,7 +111,7 @@ func (r *Reader) newHeader(mmap mmap.MMap) (Header, error) {
 	header := Header{}
 
 	if r.majorVersion != 1 || r.minorVersion != 0 {
-		return header, errors.New("wrong version")
+		return header, fmt.Errorf("wrong version: %d.%d", r.majorVersion, r.minorVersion)
 	}
 
 	header.index = len(mmap) - 60

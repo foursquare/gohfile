@@ -32,7 +32,7 @@ type Writer struct {
 }
 
 func NewLocalWriter(path string, compress bool, blockSize int, debug bool) (*Writer, error) {
-	fp, err := os.OpenFile(path, os.O_CREATE, 0)
+	fp, err := os.Create(path)
 
 	if err != nil {
 		return nil, err
