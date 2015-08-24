@@ -2,12 +2,12 @@ package hfile
 
 import (
 	"bytes"
-	"encoding/binary"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"testing"
+
+	"github.com/foursquare/gohfile/testdata"
 )
 
 func tempHfile(t *testing.T, compress bool, blockSize int, keys [][]byte, values [][]byte) (string, *Scanner) {
@@ -47,13 +47,11 @@ func tempHfile(t *testing.T, compress bool, blockSize int, keys [][]byte, values
 }
 
 func keyI(i int) []byte {
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, uint32(i))
-	return buf
+	return testdata.KeyInt(i)
 }
 
 func valI(i int) []byte {
-	return []byte(fmt.Sprintf("value-for-%d", i))
+	return testdata.ValueInt(i)
 }
 
 func TestRoundTrip(t *testing.T) {

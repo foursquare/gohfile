@@ -25,7 +25,7 @@ var biggerSampleKey = []byte{0, 1, 0, 1}
 var biggerSampleValue = []byte("~65537")
 
 func sampleReader(t *testing.T) *Reader {
-	reader, err := NewReader("sample", "sample/pairs.hfile", false, testing.Verbose())
+	reader, err := NewReader("sample", "testdata/pairs.hfile", false, testing.Verbose())
 	if err != nil {
 		t.Fatal("error creating reader:", err)
 	}
