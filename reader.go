@@ -5,6 +5,7 @@ package hfile
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -99,11 +100,14 @@ func NewReader(name, path string, lock, debug bool) (*Reader, error) {
 	return hfile, nil
 }
 
-func (r *Reader) PrintDebugInfo(out io.Writer) {
+func (r *Reader) PrintDebugInfo(out io.Writer, includeStartKeys bool) {
 	fmt.Fprintln(out, "entries: ", r.header.entryCount)
+	fmt.Fprintf(out, "compressed: %v (%d)\n", r.header.compressionCodec != CompressionNone, r.header.compressionCodec)
 	fmt.Fprintln(out, "blocks: ", len(r.index))
-	for i, blk := range r.index {
-		fmt.Fprintf(out, "\t#%d: %s (%v)\n", i, blk.firstKeyBytes, blk.firstKeyBytes)
+	if includeStartKeys {
+		for i, blk := range r.index {
+			fmt.Fprintf(out, "\t#%d: %s\n", i, hex.EncodeToString(blk.firstKeyBytes))
+		}
 	}
 }
 
