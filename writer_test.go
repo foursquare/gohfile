@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 	"testing"
-
-	"github.com/foursquare/gohfile/testdata"
 )
 
 func tempHfile(t *testing.T, compress bool, blockSize int, keys [][]byte, values [][]byte) (string, *Scanner) {
@@ -47,11 +45,11 @@ func tempHfile(t *testing.T, compress bool, blockSize int, keys [][]byte, values
 }
 
 func keyI(i int) []byte {
-	return testdata.KeyInt(i)
+	return MockKeyInt(i)
 }
 
 func valI(i int) []byte {
-	return testdata.ValueInt(i)
+	return MockValueInt(i)
 }
 
 func TestRoundTrip(t *testing.T) {
