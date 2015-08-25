@@ -100,14 +100,16 @@ func NewReader(name, path string, lock, debug bool) (*Reader, error) {
 	return hfile, nil
 }
 
-func (r *Reader) PrintDebugInfo(out io.Writer, includeStartKeys bool) {
+func (r *Reader) PrintDebugInfo(out io.Writer, includeStartKeys int) {
 	fmt.Fprintln(out, "entries: ", r.header.entryCount)
-	fmt.Fprintf(out, "compressed: %v (%d)\n", r.header.compressionCodec != CompressionNone, r.header.compressionCodec)
+	fmt.Fprintf(out, "compressed: %v (codec: %d)\n", r.header.compressionCodec != CompressionNone, r.header.compressionCodec)
 	fmt.Fprintln(out, "blocks: ", len(r.index))
-	if includeStartKeys {
-		for i, blk := range r.index {
-			fmt.Fprintf(out, "\t#%d: %s\n", i, hex.EncodeToString(blk.firstKeyBytes))
+	for i, blk := range r.index {
+		if i > includeStartKeys {
+			fmt.Fprintf(out, "\t... and %d more\n", len(r.index)-i)
+			return
 		}
+		fmt.Fprintf(out, "\t#%d: %s\n", i, hex.EncodeToString(blk.firstKeyBytes))
 	}
 }
 
