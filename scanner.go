@@ -161,3 +161,11 @@ func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bo
 	}
 	return nil, acc, len(acc) > 0
 }
+
+func (s *Scanner) Release() {
+	s.Reset()
+	select {
+	case s.reader.scannerCache <- s:
+	default:
+	}
+}

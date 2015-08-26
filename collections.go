@@ -77,11 +77,3 @@ func (cs *CollectionSet) IteratorFor(name string) (*Iterator, error) {
 		return NewIterator(r), nil
 	}
 }
-
-func (cs *CollectionSet) ReturnScanner(s *Scanner) {
-	s.Reset()
-	select {
-	case s.reader.scannerCache <- s:
-	default:
-	}
-}
