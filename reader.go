@@ -228,10 +228,7 @@ func (r *Reader) GetBlockBuf(i int, dst []byte) ([]byte, error) {
 		return nil, errors.New("Unsupported compression codec " + string(r.header.compressionCodec))
 	}
 
-	buf := bytes.NewReader(dst)
-	dataBlockMagic := make([]byte, 8)
-	buf.Read(dataBlockMagic)
-	if bytes.Compare(dataBlockMagic, DataMagic) != 0 {
+	if bytes.Compare(dst[0:8], DataMagic) != 0 {
 		return nil, errors.New("bad data block magic")
 	}
 
