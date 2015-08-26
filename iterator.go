@@ -12,16 +12,23 @@ type Iterator struct {
 	hfile          *Reader
 	dataBlockIndex int
 
+	block []byte
+	pos   int
+
 	buf []byte
-	pos int
 
 	key   []byte
 	value []byte
 	OrderedOps
 }
 
-func (hfile *Reader) NewIterator() *Iterator {
-	it := Iterator{hfile, 0, nil, 0, nil, nil, OrderedOps{nil}}
+func (r *Reader) NewIterator() *Iterator {
+	var buf []byte
+	if r.header.compressionCodec > CompressionNone {
+		buf = make([]byte, int(float64(r.header.totalUncompressedDataBytes/uint64(len(r.index)))*1.5))
+	}
+
+	it := Iterator{r, 0, nil, 0, buf, nil, nil, OrderedOps{nil}}
 	return &it
 }
 
@@ -48,7 +55,7 @@ func (it *Iterator) Seek(key []byte) (bool, error) {
 		if it.hfile.debug {
 			log.Println("[Iterator.Seek] new block!")
 		}
-		it.buf = nil
+		it.block = nil
 		it.dataBlockIndex = blk
 	}
 
@@ -94,25 +101,25 @@ func (it *Iterator) Next() (bool, error) {
 		return false, nil
 	}
 
-	if it.buf == nil {
-		it.buf, err = it.hfile.GetBlockBuf(it.dataBlockIndex, it.buf)
+	if it.block == nil {
+		it.block, err = it.hfile.GetBlockBuf(it.dataBlockIndex, it.buf)
 		it.pos = 8
 		if err != nil {
 			return false, err
 		}
 	}
 
-	if len(it.buf)-it.pos <= 0 {
+	if len(it.block)-it.pos <= 0 {
 		it.dataBlockIndex += 1
-		it.buf = nil
+		it.block = nil
 		return it.Next()
 	}
 
-	keyLen := int(binary.BigEndian.Uint32(it.buf[it.pos : it.pos+4]))
-	valLen := int(binary.BigEndian.Uint32(it.buf[it.pos+4 : it.pos+8]))
+	keyLen := int(binary.BigEndian.Uint32(it.block[it.pos : it.pos+4]))
+	valLen := int(binary.BigEndian.Uint32(it.block[it.pos+4 : it.pos+8]))
 
-	it.key = it.buf[it.pos+8 : it.pos+8+keyLen]
-	it.value = it.buf[it.pos+8+keyLen : it.pos+8+keyLen+valLen]
+	it.key = it.block[it.pos+8 : it.pos+8+keyLen]
+	it.value = it.block[it.pos+8+keyLen : it.pos+8+keyLen+valLen]
 	it.pos += keyLen + valLen + 8
 	return true, nil
 }
