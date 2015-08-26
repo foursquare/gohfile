@@ -118,11 +118,12 @@ func (s *Scanner) getValuesFromBuffer(buf *bytes.Reader, key []byte, first bool)
 		binary.Read(buf, binary.BigEndian, &keyLen)
 		binary.Read(buf, binary.BigEndian, &valLen)
 		keyBytes := make([]byte, keyLen)
-		valBytes := make([]byte, valLen)
 		buf.Read(keyBytes)
-		buf.Read(valBytes)
 		cmp := bytes.Compare(keyBytes, key)
 		if cmp == 0 {
+			valBytes := make([]byte, valLen)
+			buf.Read(valBytes)
+
 			if s.reader.debug {
 				log.Printf("[Scanner.getValuesFromBuffer] found! '%s'\n", hex.EncodeToString(key))
 			}
@@ -134,6 +135,8 @@ func (s *Scanner) getValuesFromBuffer(buf *bytes.Reader, key []byte, first bool)
 			} else {
 				acc = append(acc, valBytes)
 			}
+		} else {
+			buf.Seek(int64(valLen), 1)
 		}
 		if cmp > 0 {
 			if s.reader.debug {
