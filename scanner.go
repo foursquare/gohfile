@@ -12,7 +12,7 @@ import (
 type Scanner struct {
 	reader *Reader
 	idx    int
-	buf    []byte
+	block  []byte
 	pos    *int
 	last   []byte
 	OrderedOps
@@ -24,7 +24,7 @@ func NewScanner(r *Reader) *Scanner {
 
 func (s *Scanner) Reset() {
 	s.idx = 0
-	s.buf = nil
+	s.block = nil
 	s.pos = nil
 	s.ResetState()
 }
@@ -57,7 +57,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 		)
 	}
 
-	if idx != s.idx || s.buf == nil { // need to load a new block
+	if idx != s.idx || s.block == nil { // need to load a new block
 		data, err := s.reader.GetBlockBuf(idx, s.last)
 		if err != nil {
 			if s.reader.debug {
@@ -73,14 +73,14 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 		i := 8
 		s.pos = &i
 		s.idx = idx
-		s.buf = data
+		s.block = data
 	} else {
 		if s.reader.debug {
 			log.Println("[Scanner.blockFor] Re-using current block")
 		}
 	}
 
-	return s.buf, nil, true
+	return s.block, nil, true
 }
 
 func (s *Scanner) GetFirst(key []byte) ([]byte, error, bool) {
