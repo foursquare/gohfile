@@ -12,22 +12,24 @@ import (
 type Scanner struct {
 	reader *Reader
 	idx    int
-	buf    *bytes.Reader
+	buf    []byte
+	pos    *int
 	last   []byte
 	OrderedOps
 }
 
 func NewScanner(r *Reader) *Scanner {
-	return &Scanner{r, 0, nil, nil, OrderedOps{nil}}
+	return &Scanner{r, 0, nil, nil, nil, OrderedOps{nil}}
 }
 
 func (s *Scanner) Reset() {
 	s.idx = 0
 	s.buf = nil
+	s.pos = nil
 	s.ResetState()
 }
 
-func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
+func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 	err := s.CheckIfKeyOutOfOrder(key)
 	if err != nil {
 		return nil, err, false
@@ -56,7 +58,7 @@ func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
 	}
 
 	if idx != s.idx || s.buf == nil { // need to load a new block
-		data, last, err := s.reader.GetBlockBuf(idx, s.last)
+		data, err := s.reader.GetBlockBuf(idx, s.last)
 		if err != nil {
 			if s.reader.debug {
 				log.Printf("[Scanner.blockFor] read err %s (key: %s, idx: %d, start: %s)\n",
@@ -68,7 +70,8 @@ func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
 			}
 			return nil, err, false
 		}
-		s.last = last
+		i := 8
+		s.pos = &i
 		s.idx = idx
 		s.buf = data
 	} else {
@@ -90,7 +93,13 @@ func (s *Scanner) GetFirst(key []byte) ([]byte, error, bool) {
 		return nil, err, ok
 	}
 
-	value, _, found := s.getValuesFromBuffer(data, key, true)
+	if s.reader.debug {
+		log.Printf("[Scanner.GetFirst] Searching Block for key: %s (pos: %d)\n", hex.EncodeToString(key), *s.pos)
+	}
+	value, _, found := s.getValuesFromBuffer(data, s.pos, key, true)
+	if s.reader.debug {
+		log.Printf("[Scanner.GetFirst] After pos pos: %d\n", *s.pos)
+	}
 	return value, nil, found
 }
 
@@ -104,54 +113,45 @@ func (s *Scanner) GetAll(key []byte) ([][]byte, error) {
 		return nil, err
 	}
 
-	_, found, _ := s.getValuesFromBuffer(data, key, false)
+	_, found, _ := s.getValuesFromBuffer(data, s.pos, key, false)
 	return found, err
 }
 
-func (s *Scanner) getValuesFromBuffer(buf *bytes.Reader, key []byte, first bool) ([]byte, [][]byte, bool) {
+func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bool) ([]byte, [][]byte, bool) {
 	var acc [][]byte
 
+	i := *pos
+
 	if s.reader.debug {
-		log.Printf("[Scanner.getValuesFromBuffer] buf before %d\n", buf.Len())
+		log.Printf("[Scanner.getValuesFromBuffer] buf before %d / %d\n", i, len(buf))
 	}
 
-	for buf.Len() > 0 {
-		var keyLen, valLen uint32
-		binary.Read(buf, binary.BigEndian, &keyLen)
-		binary.Read(buf, binary.BigEndian, &valLen)
-		keyBytes := make([]byte, keyLen)
-		buf.Read(keyBytes)
-		cmp := bytes.Compare(keyBytes, key)
-		if cmp == 0 {
-			valBytes := make([]byte, valLen)
-			buf.Read(valBytes)
+	for len(buf)-i > 8 {
+		keyLen := int(binary.BigEndian.Uint32(buf[i : i+4]))
+		valLen := int(binary.BigEndian.Uint32(buf[i+4 : i+8]))
 
-			if s.reader.debug {
-				log.Printf("[Scanner.getValuesFromBuffer] found! '%s'\n", hex.EncodeToString(key))
-			}
+		cmp := bytes.Compare(buf[i+8:i+8+keyLen], key)
+
+		switch {
+		case cmp == 0:
+			i += 8 + keyLen
 			if first {
-				if s.reader.debug {
-					log.Printf("[Scanner.getValuesFromBuffer] buf after %d\n", buf.Len())
-				}
-				return valBytes, nil, true
+				*pos = i + valLen
+				return buf[i : i+valLen], nil, true
 			} else {
-				acc = append(acc, valBytes)
+				acc = append(acc, buf[i:i+valLen])
+				i += valLen // now on next length pair
 			}
-		} else {
-			buf.Seek(int64(valLen), 1)
-		}
-		if cmp > 0 {
-			if s.reader.debug {
-				log.Printf("[Scanner.getValuesFromBuffer] past key %s vs %s. buf remaining %d\n",
-					hex.EncodeToString(key),
-					hex.EncodeToString(keyBytes),
-					buf.Len(),
-				)
-			}
-			buf.Seek(-(int64(keyLen + valLen + 8)), 1)
+		case cmp > 0:
+			*pos = i
 			return nil, acc, len(acc) > 0
+		default:
+			i += 8 + keyLen + valLen
 		}
 	}
+
+	*pos = i
+
 	if s.reader.debug {
 		log.Printf("[Scanner.getValuesFromBuffer] walked off block\n")
 	}
