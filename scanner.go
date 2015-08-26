@@ -14,12 +14,16 @@ type Scanner struct {
 	idx    int
 	block  []byte
 	pos    *int
-	last   []byte
+	buf    []byte
 	OrderedOps
 }
 
 func NewScanner(r *Reader) *Scanner {
-	return &Scanner{r, 0, nil, nil, nil, OrderedOps{nil}}
+	var buf []byte
+	if r.header.compressionCodec > CompressionNone {
+		buf = make([]byte, int(float64(r.header.totalUncompressedDataBytes/uint64(len(r.index)))*1.5))
+	}
+	return &Scanner{r, 0, nil, nil, buf, OrderedOps{nil}}
 }
 
 func (s *Scanner) Reset() {
@@ -58,7 +62,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 	}
 
 	if idx != s.idx || s.block == nil { // need to load a new block
-		data, err := s.reader.GetBlockBuf(idx, s.last)
+		data, err := s.reader.GetBlockBuf(idx, s.buf)
 		if err != nil {
 			if s.reader.debug {
 				log.Printf("[Scanner.blockFor] read err %s (key: %s, idx: %d, start: %s)\n",
