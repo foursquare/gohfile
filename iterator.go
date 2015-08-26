@@ -22,7 +22,7 @@ type Iterator struct {
 	OrderedOps
 }
 
-func (r *Reader) NewIterator() *Iterator {
+func NewIterator(r *Reader) *Iterator {
 	var buf []byte
 	if r.header.compressionCodec > CompressionNone {
 		buf = make([]byte, int(float64(r.header.totalUncompressedDataBytes/uint64(len(r.index)))*1.5))
@@ -30,6 +30,15 @@ func (r *Reader) NewIterator() *Iterator {
 
 	it := Iterator{r, 0, nil, 0, buf, nil, nil, OrderedOps{nil}}
 	return &it
+}
+
+func (it *Iterator) Reset() {
+	it.dataBlockIndex = 0
+	it.block = nil
+	it.pos = 0
+	it.key = nil
+	it.value = nil
+	it.ResetState()
 }
 
 func (it *Iterator) Seek(key []byte) (bool, error) {
@@ -160,4 +169,12 @@ func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error
 		}
 	}
 	return res, nil
+}
+
+func (it *Iterator) Release() {
+	it.Reset()
+	select {
+	case it.hfile.iteratorCache <- it:
+	default:
+	}
 }

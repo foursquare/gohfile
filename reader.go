@@ -25,8 +25,10 @@ type Reader struct {
 	header Header
 	index  []Block
 
-	debug        bool
-	scannerCache chan *Scanner
+	debug bool
+
+	scannerCache  chan *Scanner
+	iteratorCache chan *Iterator
 }
 
 type Header struct {
@@ -98,6 +100,7 @@ func NewReader(name, path string, lock, debug bool) (*Reader, error) {
 		return hfile, err
 	}
 	hfile.scannerCache = make(chan *Scanner, 5)
+	hfile.iteratorCache = make(chan *Iterator, 5)
 	return hfile, nil
 }
 

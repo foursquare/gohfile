@@ -37,7 +37,7 @@ func sampleScanner(t *testing.T) *Scanner {
 }
 
 func sampleIterator(t *testing.T) *Iterator {
-	return sampleReader(t).NewIterator()
+	return NewIterator(sampleReader(t))
 }
 
 func TestFirstKeys(t *testing.T) {
