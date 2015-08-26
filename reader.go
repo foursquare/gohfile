@@ -205,35 +205,39 @@ func (r *Reader) FindBlock(from int, key []byte) int {
 	return from + offset
 }
 
-func (r *Reader) GetBlock(i int) (*bytes.Reader, error) {
-	var buf *bytes.Reader
+func (r *Reader) GetBlock(i int) (*bytes.Reader, []byte, error) {
+	return r.GetBlockBuf(i, nil)
+}
+
+func (r *Reader) GetBlockBuf(i int, dst []byte) (*bytes.Reader, []byte, error) {
+	var err error
 
 	block := r.index[i]
 
 	switch r.header.compressionCodec {
 	case CompressionNone:
-		buf = bytes.NewReader(r.mmap[block.offset : block.offset+uint64(block.size)])
+		dst = r.mmap[block.offset : block.offset+uint64(block.size)]
 	case CompressionSnappy:
 		uncompressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset : block.offset+4])
 		if uncompressedByteSize != block.size {
-			return nil, errors.New("mismatched uncompressed block size")
+			return nil, nil, errors.New("mismatched uncompressed block size")
 		}
 		compressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset+4 : block.offset+8])
 		compressedBytes := r.mmap[block.offset+8 : block.offset+8+uint64(compressedByteSize)]
-		uncompressedBytes, err := snappy.Decode(nil, compressedBytes)
+		dst, err = snappy.Decode(dst, compressedBytes)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		buf = bytes.NewReader(uncompressedBytes)
 	default:
-		return nil, errors.New("Unsupported compression codec " + string(r.header.compressionCodec))
+		return nil, nil, errors.New("Unsupported compression codec " + string(r.header.compressionCodec))
 	}
 
+	buf := bytes.NewReader(dst)
 	dataBlockMagic := make([]byte, 8)
 	buf.Read(dataBlockMagic)
 	if bytes.Compare(dataBlockMagic, DataMagic) != 0 {
-		return nil, errors.New("bad data block magic")
+		return nil, nil, errors.New("bad data block magic")
 	}
 
-	return buf, nil
+	return buf, dst, nil
 }

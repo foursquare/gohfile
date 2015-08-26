@@ -13,11 +13,12 @@ type Scanner struct {
 	reader *Reader
 	idx    int
 	buf    *bytes.Reader
+	last   []byte
 	OrderedOps
 }
 
 func NewScanner(r *Reader) *Scanner {
-	return &Scanner{r, 0, nil, OrderedOps{nil}}
+	return &Scanner{r, 0, nil, nil, OrderedOps{nil}}
 }
 
 func (s *Scanner) Reset() {
@@ -55,7 +56,7 @@ func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
 	}
 
 	if idx != s.idx || s.buf == nil { // need to load a new block
-		data, err := s.reader.GetBlock(idx)
+		data, last, err := s.reader.GetBlockBuf(idx, s.last)
 		if err != nil {
 			if s.reader.debug {
 				log.Printf("[Scanner.blockFor] read err %s (key: %s, idx: %d, start: %s)\n",
@@ -67,6 +68,7 @@ func (s *Scanner) blockFor(key []byte) (*bytes.Reader, error, bool) {
 			}
 			return nil, err, false
 		}
+		s.last = last
 		s.idx = idx
 		s.buf = data
 	} else {

@@ -12,13 +12,14 @@ type Iterator struct {
 	hfile          *Reader
 	dataBlockIndex int
 	block          *bytes.Reader
+	buf            []byte
 	key            []byte
 	value          []byte
 	OrderedOps
 }
 
 func (hfile *Reader) NewIterator() *Iterator {
-	it := Iterator{hfile, 0, nil, nil, nil, OrderedOps{nil}}
+	it := Iterator{hfile, 0, nil, nil, nil, nil, OrderedOps{nil}}
 	return &it
 }
 
@@ -89,7 +90,7 @@ func (it *Iterator) Next() (bool, error) {
 	}
 
 	if it.block == nil {
-		it.block, err = it.hfile.GetBlock(it.dataBlockIndex)
+		it.block, it.buf, err = it.hfile.GetBlockBuf(it.dataBlockIndex, it.buf)
 		if err != nil {
 			return false, err
 		}
