@@ -40,7 +40,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 	}
 
 	if s.reader.index[s.idx].IsAfter(key) {
-		if s.reader.debug {
+		if s.reader.Debug {
 			log.Printf("[Scanner.blockFor] curBlock after key %s (cur: %d, start: %s)\n",
 				hex.EncodeToString(key),
 				s.idx,
@@ -51,7 +51,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 	}
 
 	idx := s.reader.FindBlock(s.idx, key)
-	if s.reader.debug {
+	if s.reader.Debug {
 		log.Printf("[Scanner.blockFor] findBlock (key: %s) picked %d (starts: %s). Cur: %d (starts: %s)\n",
 			hex.EncodeToString(key),
 			idx,
@@ -64,7 +64,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 	if idx != s.idx || s.block == nil { // need to load a new block
 		data, err := s.reader.GetBlockBuf(idx, s.buf)
 		if err != nil {
-			if s.reader.debug {
+			if s.reader.Debug {
 				log.Printf("[Scanner.blockFor] read err %s (key: %s, idx: %d, start: %s)\n",
 					err,
 					hex.EncodeToString(key),
@@ -79,7 +79,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 		s.idx = idx
 		s.block = data
 	} else {
-		if s.reader.debug {
+		if s.reader.Debug {
 			log.Println("[Scanner.blockFor] Re-using current block")
 		}
 	}
@@ -91,17 +91,17 @@ func (s *Scanner) GetFirst(key []byte) ([]byte, error, bool) {
 	data, err, ok := s.blockFor(key)
 
 	if !ok {
-		if s.reader.debug {
+		if s.reader.Debug {
 			log.Printf("[Scanner.GetFirst] No Block for key: %s (err: %s, found: %s)\n", hex.EncodeToString(key), err, ok)
 		}
 		return nil, err, ok
 	}
 
-	if s.reader.debug {
+	if s.reader.Debug {
 		log.Printf("[Scanner.GetFirst] Searching Block for key: %s (pos: %d)\n", hex.EncodeToString(key), *s.pos)
 	}
 	value, _, found := s.getValuesFromBuffer(data, s.pos, key, true)
-	if s.reader.debug {
+	if s.reader.Debug {
 		log.Printf("[Scanner.GetFirst] After pos pos: %d\n", *s.pos)
 	}
 	return value, nil, found
@@ -111,7 +111,7 @@ func (s *Scanner) GetAll(key []byte) ([][]byte, error) {
 	data, err, ok := s.blockFor(key)
 
 	if !ok {
-		if s.reader.debug {
+		if s.reader.Debug {
 			log.Printf("[Scanner.GetAll] No Block for key: %s (err: %s, found: %s)\n", hex.EncodeToString(key), err, ok)
 		}
 		return nil, err
@@ -126,7 +126,7 @@ func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bo
 
 	i := *pos
 
-	if s.reader.debug {
+	if s.reader.Debug {
 		log.Printf("[Scanner.getValuesFromBuffer] buf before %d / %d\n", i, len(buf))
 	}
 
@@ -159,7 +159,7 @@ func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bo
 
 	*pos = i
 
-	if s.reader.debug {
+	if s.reader.Debug {
 		log.Printf("[Scanner.getValuesFromBuffer] walked off block\n")
 	}
 	return nil, acc, len(acc) > 0

@@ -18,14 +18,15 @@ import (
 )
 
 type Reader struct {
-	mmap         mmap.MMap
+	CollectionConfig
+
+	mmap mmap.MMap
+
 	majorVersion uint32
 	minorVersion uint32
 
 	header Header
 	index  []Block
-
-	debug bool
 
 	scannerCache  chan *Scanner
 	iteratorCache chan *Iterator
@@ -50,19 +51,19 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-func NewReaderFromConfig(cfg *CollectionConfig, debug bool) (*Reader, error) {
-	return NewReader(cfg.Name, cfg.Path, cfg.Mlock, debug)
+func NewReader(name, path string, lock, debug bool) (*Reader, error) {
+	return NewReaderFromConfig(CollectionConfig{name, path, lock, debug})
 }
 
-func NewReader(name, path string, lock, debug bool) (*Reader, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0)
+func NewReaderFromConfig(cfg CollectionConfig) (*Reader, error) {
+	f, err := os.OpenFile(cfg.Path, os.O_RDONLY, 0)
 
 	if err != nil {
 		return nil, err
 	}
 
 	hfile := new(Reader)
-	hfile.debug = debug
+	hfile.CollectionConfig = cfg
 
 	hfile.mmap, err = mmap.Map(f, mmap.RDONLY, 0)
 
@@ -75,16 +76,16 @@ func NewReader(name, path string, lock, debug bool) (*Reader, error) {
 		return nil, err
 	}
 
-	if lock {
+	if hfile.InMem {
 		mb := 1024.0 * 1024.0
-		log.Printf("[Reader.NewReader] locking %s (%.02fmb)...\n", name, float64(fi.Size())/mb)
+		log.Printf("[Reader.NewReader] locking %s (%.02fmb)...\n", hfile.Name, float64(fi.Size())/mb)
 		if err = hfile.mmap.Lock(); err != nil {
-			log.Printf("[Reader.NewReader] error locking %s: %s\n", name, err.Error())
+			log.Printf("[Reader.NewReader] error locking %s: %s\n", hfile.Name, err.Error())
 			return nil, err
 		}
-		log.Printf("[Reader.NewReader] locked %s.\n", name)
-	} else if debug {
-		log.Printf("[Reader.NewReader] Not locking %s...\n", name)
+		log.Printf("[Reader.NewReader] locked %s.\n", hfile.Name)
+	} else if hfile.Debug {
+		log.Printf("[Reader.NewReader] Not locking %s...\n", hfile.Name)
 	}
 
 	v := binary.BigEndian.Uint32(hfile.mmap[len(hfile.mmap)-4:])
@@ -184,19 +185,19 @@ func (b *Block) IsAfter(key []byte) bool {
 
 func (r *Reader) FindBlock(from int, key []byte) int {
 	remaining := len(r.index) - from - 1
-	if r.debug {
+	if r.Debug {
 		log.Printf("[Reader.findBlock] cur %d, remaining %d\n", from, remaining)
 	}
 
 	if remaining <= 0 {
-		if r.debug {
+		if r.Debug {
 			log.Println("[Reader.findBlock] last block")
 		}
 		return from // s.cur is the last block, so it is only choice.
 	}
 
 	if r.index[from+1].IsAfter(key) {
-		if r.debug {
+		if r.Debug {
 			log.Println("[Reader.findBlock] next block is past key")
 		}
 		return from

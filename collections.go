@@ -5,35 +5,38 @@ import (
 )
 
 type CollectionConfig struct {
-	Name  string
-	Path  string
-	Mlock bool
-}
+	// The Name of the collection.
+	Name string
 
-type Collection struct {
-	Config *CollectionConfig
-	reader *Reader
+	// The Hfile itself.
+	Path string
+
+	// If the collection data should be kept in-memory (via mlock).
+	InMem bool
+
+	// Should operations on this collection emit verbose debug output.
+	Debug bool
 }
 
 type CollectionSet struct {
-	Collections map[string]Collection
+	Collections map[string]*Reader
 }
 
 func LoadCollections(collections []CollectionConfig, debug bool) (*CollectionSet, error) {
 	cs := new(CollectionSet)
-	cs.Collections = make(map[string]Collection)
+	cs.Collections = make(map[string]*Reader)
 
 	if len(collections) < 1 {
 		return nil, fmt.Errorf("no collections to load!")
 	}
 
 	for _, cfg := range collections {
-		reader, err := NewReaderFromConfig(&cfg, debug)
+		reader, err := NewReaderFromConfig(cfg)
 		if err != nil {
 			return nil, err
 		}
 
-		cs.Collections[cfg.Name] = Collection{&cfg, reader}
+		cs.Collections[cfg.Name] = reader
 	}
 
 	return cs, nil
@@ -44,5 +47,5 @@ func (cs *CollectionSet) ReaderFor(name string) (*Reader, error) {
 	if !ok {
 		return nil, fmt.Errorf("not configured with reader for collection %s", name)
 	}
-	return c.reader, nil
+	return c, nil
 }

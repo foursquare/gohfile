@@ -49,14 +49,14 @@ func (it *Iterator) Seek(key []byte) (bool, error) {
 	}
 
 	if it.key != nil && After(it.key, key) {
-		if it.hfile.debug {
+		if it.hfile.Debug {
 			log.Println("[Iterator.Seek] already past")
 		}
 		return true, nil
 	}
 
 	blk := it.hfile.FindBlock(it.dataBlockIndex, key)
-	if it.hfile.debug {
+	if it.hfile.Debug {
 		log.Printf("[Iterator.Seek] picked block %d, cur %d\n", blk, it.dataBlockIndex)
 		if len(it.hfile.index) > blk+1 {
 			log.Printf("[Iterator.Seek] following block starts at: %v\n", it.hfile.index[blk+1].firstKeyBytes)
@@ -66,7 +66,7 @@ func (it *Iterator) Seek(key []byte) (bool, error) {
 	}
 
 	if blk != it.dataBlockIndex {
-		if it.hfile.debug {
+		if it.hfile.Debug {
 			log.Println("[Iterator.Seek] new block!")
 		}
 		it.block = nil
@@ -78,27 +78,27 @@ func (it *Iterator) Seek(key []byte) (bool, error) {
 		return false, err
 	}
 
-	if it.hfile.debug {
+	if it.hfile.Debug {
 		log.Printf("[Iterator.Seek] looking for %v (starting at %v)\n", key, it.key)
 	}
 
 	for ok {
 		after := After(key, it.key)
-		if it.hfile.debug {
+		if it.hfile.Debug {
 			log.Printf("[Iterator.Seek] \t %v (%v)\n", it.key, after)
 		}
 
 		if err == nil && after {
 			ok, err = it.Next()
 		} else {
-			if it.hfile.debug {
+			if it.hfile.Debug {
 				log.Printf("[Iterator.Seek] done %v (err %v)\n", it.key, err)
 			}
 			return ok, err
 		}
 	}
 
-	if it.hfile.debug {
+	if it.hfile.Debug {
 		log.Println("[Iterator.Seek] walked off block")
 	}
 
