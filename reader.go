@@ -238,3 +238,21 @@ func (r *Reader) GetBlockBuf(i int, dst []byte) ([]byte, error) {
 
 	return dst, nil
 }
+
+func (r *Reader) GetScanner() *Scanner {
+	select {
+	case s := <-r.scannerCache:
+		return s
+	default:
+		return NewScanner(r)
+	}
+}
+
+func (r *Reader) GetIterator() *Iterator {
+	select {
+	case i := <-r.iteratorCache:
+		return i
+	default:
+		return NewIterator(r)
+	}
+}

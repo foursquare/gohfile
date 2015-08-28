@@ -46,34 +46,3 @@ func (cs *CollectionSet) ReaderFor(name string) (*Reader, error) {
 	}
 	return c.reader, nil
 }
-
-func (cs *CollectionSet) ScannerFor(name string) (*Scanner, error) {
-
-	r, err := cs.ReaderFor(name)
-	if err != nil {
-		return nil, err
-	}
-
-	select {
-	case s := <-r.scannerCache:
-		return s, nil
-	default:
-	}
-
-	s := NewScanner(r)
-	return s, nil
-}
-
-func (cs *CollectionSet) IteratorFor(name string) (*Iterator, error) {
-	r, err := cs.ReaderFor(name)
-	if err != nil {
-		return nil, err
-	}
-
-	select {
-	case i := <-r.iteratorCache:
-		return i, nil
-	default:
-		return NewIterator(r), nil
-	}
-}
