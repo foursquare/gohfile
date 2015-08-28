@@ -7,7 +7,8 @@ import (
 	"testing"
 )
 
-// The sample file `smaple/pairs.hfile` pairs of integers to strings
+// The sample file `smaple/pairs.hfile` has pairs of integers to strings.
+// It was generated from the "known-good" scala ver
 // The keys are sequential integers represented as 4 bytes (big-endian).
 // The values are strings, containing ascii bytes of the string "~x", where x is the key's integer value.
 // Thus, the 34th k-v pair has key 00 00 00 1C and value 7E 31 38 ("~18").
@@ -16,14 +17,21 @@ var firstSampleKey = MockKeyInt(1)
 var firstSampleValue = MockValueInt(1)
 var secondSampleBlockKey = []byte{0, 0, 229, 248}
 
-func fakeDataReader(t *testing.T, compress bool) (string, *Reader) {
+func fakeDataReader(t *testing.T, compress, multi bool) (string, *Reader) {
 	f, err := ioutil.TempFile("", "hfile")
 	if err != nil {
 		t.Fatal("cannot create tempfile: ", err)
 	}
-	err = GenerateMockHfile(f.Name(), 100000, 1024, compress, false, false)
-	if err != nil {
-		t.Fatal("cannot write to tempfile: ", err)
+	if multi {
+		err = GenerateMockMultiHfile(f.Name(), 100000, 1024*4, compress, false, false)
+		if err != nil {
+			t.Fatal("cannot write to tempfile: ", err)
+		}
+	} else {
+		err = GenerateMockHfile(f.Name(), 100000, 1024*4, compress, false, false)
+		if err != nil {
+			t.Fatal("cannot write to tempfile: ", err)
+		}
 	}
 	reader, err := NewReader("sample", f.Name(), false, testing.Verbose())
 	if err != nil {
@@ -47,7 +55,7 @@ func TestFirstKeys(t *testing.T) {
 }
 
 func TestGetFirstSample(t *testing.T) {
-	f, r := fakeDataReader(t, true)
+	f, r := fakeDataReader(t, true, false)
 	defer os.Remove(f)
 	s := r.GetScanner()
 
@@ -86,7 +94,7 @@ func TestGetFirstSample(t *testing.T) {
 }
 
 func TestIterator(t *testing.T) {
-	f, r := fakeDataReader(t, true)
+	f, r := fakeDataReader(t, true, false)
 	defer os.Remove(f)
 	i := r.GetIterator()
 	ok, err := i.Next()
@@ -152,7 +160,7 @@ func TestIterator(t *testing.T) {
 }
 
 func TestSinglePrefix(t *testing.T) {
-	f, r := fakeDataReader(t, true)
+	f, r := fakeDataReader(t, true, false)
 	defer os.Remove(f)
 	i := r.GetIterator()
 
