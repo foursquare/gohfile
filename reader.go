@@ -182,6 +182,13 @@ func (b *Block) IsAfter(key []byte) bool {
 	return After(b.firstKeyBytes, key)
 }
 
+func (r *Reader) FirstKey() ([]byte, error) {
+	if len(r.index) < 1 {
+		return nil, fmt.Errorf("empty collection has no first key")
+	}
+	return r.index[0].firstKeyBytes, nil
+}
+
 func (r *Reader) FindBlock(from int, key []byte) int {
 	remaining := len(r.index) - from - 1
 	if r.Debug {
