@@ -1,7 +1,16 @@
 package hfile
 
 import (
+	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path"
+	"strings"
 )
 
 type CollectionConfig struct {
@@ -23,15 +32,18 @@ type CollectionConfig struct {
 
 type CollectionSet struct {
 	Collections map[string]*Reader
+	cache       string
 }
 
-func LoadCollections(collections []CollectionConfig, debug bool) (*CollectionSet, error) {
+func LoadCollections(collections []CollectionConfig, cache string) (*CollectionSet, error) {
 	cs := new(CollectionSet)
 	cs.Collections = make(map[string]*Reader)
 
 	if len(collections) < 1 {
 		return nil, fmt.Errorf("no collections to load!")
 	}
+
+	downloadCollections(collections, cache)
 
 	for _, cfg := range collections {
 		reader, err := NewReaderFromConfig(cfg)
@@ -43,6 +55,68 @@ func LoadCollections(collections []CollectionConfig, debug bool) (*CollectionSet
 	}
 
 	return cs, nil
+}
+
+func downloadCollections(collections []CollectionConfig, cache string) error {
+	for _, cfg := range collections {
+		remote := isRemote(cfg.SourcePath)
+		if remote {
+			cfg.LocalPath = localCache(cfg.SourcePath, cache)
+			if _, err := os.Stat(cfg.LocalPath); err == nil {
+				if cfg.Debug {
+					log.Printf("[FetchRemote] %s already cached: %s.", cfg.Name, cfg.LocalPath)
+				}
+			} else if !os.IsNotExist(err) {
+				return err
+			} else {
+				err = fetch(&cfg)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func isRemote(path string) bool {
+	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
+}
+
+func localCache(url, cache string) string {
+	h := md5.Sum([]byte(url))
+	name := hex.EncodeToString(h[:]) + ".hfile"
+	return path.Join(cache, name)
+}
+
+func fetch(cfg *CollectionConfig) error {
+	log.Printf("[FetchRemote] Fetching %s: %s -> %s.", cfg.Name, cfg.SourcePath, cfg.LocalPath)
+
+	fp, err := os.Create(cfg.LocalPath)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+
+	resp, err := http.Get(cfg.SourcePath)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 400 {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(resp.Body)
+		return fmt.Errorf("HTTP error fetching (%s): %s\n", resp.Status, buf.String())
+	}
+	defer resp.Body.Close()
+
+	sz, err := io.Copy(fp, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	sz = sz / (1024 * 1024)
+	log.Printf("[FetchRemote] Fetched %s (%dmb).", cfg.Name, sz)
+	return nil
 }
 
 func (cs *CollectionSet) ReaderFor(name string) (*Reader, error) {
