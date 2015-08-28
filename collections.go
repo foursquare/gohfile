@@ -35,7 +35,7 @@ type CollectionSet struct {
 	cache       string
 }
 
-func LoadCollections(collections []CollectionConfig, cache string) (*CollectionSet, error) {
+func LoadCollections(collections []*CollectionConfig, cache string) (*CollectionSet, error) {
 	cs := new(CollectionSet)
 	cs.Collections = make(map[string]*Reader)
 
@@ -46,7 +46,7 @@ func LoadCollections(collections []CollectionConfig, cache string) (*CollectionS
 	downloadCollections(collections, cache)
 
 	for _, cfg := range collections {
-		reader, err := NewReaderFromConfig(cfg)
+		reader, err := NewReaderFromConfig(*cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -57,8 +57,12 @@ func LoadCollections(collections []CollectionConfig, cache string) (*CollectionS
 	return cs, nil
 }
 
-func downloadCollections(collections []CollectionConfig, cache string) error {
+func downloadCollections(collections []*CollectionConfig, cache string) error {
 	for _, cfg := range collections {
+		if cfg.LocalPath == "" {
+			cfg.LocalPath = cfg.SourcePath
+		}
+
 		remote := isRemote(cfg.SourcePath)
 		if remote {
 			cfg.LocalPath = localCache(cfg.SourcePath, cache)
@@ -69,7 +73,7 @@ func downloadCollections(collections []CollectionConfig, cache string) error {
 			} else if !os.IsNotExist(err) {
 				return err
 			} else {
-				err = fetch(&cfg)
+				err = fetch(cfg)
 				if err != nil {
 					return err
 				}
