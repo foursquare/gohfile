@@ -58,6 +58,11 @@ func (it *Iterator) Seek(key []byte) (bool, error) {
 	blk := it.hfile.FindBlock(it.dataBlockIndex, key)
 	if it.hfile.debug {
 		log.Printf("[Iterator.Seek] picked block %d, cur %d\n", blk, it.dataBlockIndex)
+		if len(it.hfile.index) > blk+1 {
+			log.Printf("[Iterator.Seek] following block starts at: %v\n", it.hfile.index[blk+1].firstKeyBytes)
+		} else {
+			log.Printf("[Iterator.Seek] (last block)\n")
+		}
 	}
 
 	if blk != it.dataBlockIndex {
@@ -74,20 +79,20 @@ func (it *Iterator) Seek(key []byte) (bool, error) {
 	}
 
 	if it.hfile.debug {
-		log.Printf("[Iterator.Seek] %v (looking for %v)\n", it.Key(), key)
+		log.Printf("[Iterator.Seek] looking for %v (starting at %v)\n", key, it.key)
 	}
 
 	for ok {
+		after := After(key, it.key)
 		if it.hfile.debug {
-			log.Printf("[Iterator.Seek] %v\n", it.Key())
+			log.Printf("[Iterator.Seek] \t %v (%v)\n", it.key, after)
 		}
-		after := After(key, it.Key())
 
 		if err == nil && after {
 			ok, err = it.Next()
 		} else {
 			if it.hfile.debug {
-				log.Printf("[Iterator.Seek] done %v (err %v)\n", it.Key(), err)
+				log.Printf("[Iterator.Seek] done %v (err %v)\n", it.key, err)
 			}
 			return ok, err
 		}
@@ -134,11 +139,15 @@ func (it *Iterator) Next() (bool, error) {
 }
 
 func (it *Iterator) Key() []byte {
-	return it.key
+	ret := make([]byte, len(it.key))
+	copy(ret, it.key)
+	return ret
 }
 
 func (it *Iterator) Value() []byte {
-	return it.value
+	ret := make([]byte, len(it.value))
+	copy(ret, it.value)
+	return ret
 }
 
 func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error) {
@@ -154,7 +163,7 @@ func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error
 
 		acc := make([][]byte, 0, 1)
 
-		for ok && bytes.HasPrefix(it.Key(), prefix) {
+		for ok && bytes.HasPrefix(it.key, prefix) {
 			prev := it.Key()
 			acc = append(acc, it.Value())
 
@@ -162,7 +171,7 @@ func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error
 				return nil, err
 			}
 
-			if !ok || !bytes.Equal(prev, it.Key()) {
+			if !ok || !bytes.Equal(prev, it.key) {
 				res[string(prev)] = acc
 				acc = make([][]byte, 0, 1)
 			}

@@ -2,6 +2,8 @@ package hfile
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -10,38 +12,32 @@ import (
 // The values are strings, containing ascii bytes of the string "~x", where x is the key's integer value.
 // Thus, the 34th k-v pair has key 00 00 00 1C and value 7E 31 38 ("~18").
 
-var firstSampleKey = []byte{0, 0, 0, 1}
-var firstSampleValue = []byte("~1")
-
-var secondSampleKey = []byte{0, 0, 0, 2}
-var secondSampleValue = []byte("~2")
-
+var firstSampleKey = MockKeyInt(1)
+var firstSampleValue = MockValueInt(1)
 var secondSampleBlockKey = []byte{0, 0, 229, 248}
 
-var bigSampleKey = []byte{0, 0, 240, 248}
-var bigSampleValue = []byte("~61688")
-
-var biggerSampleKey = []byte{0, 1, 0, 1}
-var biggerSampleValue = []byte("~65537")
-
-func sampleReader(t *testing.T) *Reader {
-	reader, err := NewReader("sample", "testdata/pairs.hfile", false, testing.Verbose())
+func fakeDataReader(t *testing.T, compress bool) (string, *Reader) {
+	f, err := ioutil.TempFile("", "hfile")
+	if err != nil {
+		t.Fatal("cannot create tempfile: ", err)
+	}
+	err = GenerateMockHfile(f.Name(), 100000, 1024, compress, false, false)
+	if err != nil {
+		t.Fatal("cannot write to tempfile: ", err)
+	}
+	reader, err := NewReader("sample", f.Name(), false, testing.Verbose())
 	if err != nil {
 		t.Fatal("error creating reader:", err)
 	}
-	return reader
-}
-
-func sampleScanner(t *testing.T) *Scanner {
-	return NewScanner(sampleReader(t))
-}
-
-func sampleIterator(t *testing.T) *Iterator {
-	return NewIterator(sampleReader(t))
+	return f.Name(), reader
 }
 
 func TestFirstKeys(t *testing.T) {
-	r := sampleReader(t)
+	r, err := NewReader("sample", "testdata/pairs.hfile", false, testing.Verbose())
+	if err != nil {
+		t.Fatal("cannot open sample: ", err)
+	}
+
 	if !bytes.Equal(r.index[0].firstKeyBytes, firstSampleKey) {
 		t.Fatalf("'%v', expected '%v'\n", r.index[0].firstKeyBytes, firstSampleKey)
 	}
@@ -50,38 +46,49 @@ func TestFirstKeys(t *testing.T) {
 	}
 }
 
-func TestGetFirst(t *testing.T) {
-	s := sampleScanner(t)
-	var actual []byte
+func TestGetFirstSample(t *testing.T) {
+	f, r := fakeDataReader(t, true)
+	defer os.Remove(f)
+	s := r.GetScanner()
+
+	var first, second []byte
 	var err error
 
-	actual, err, _ = s.GetFirst(firstSampleKey)
+	first, err, _ = s.GetFirst(MockKeyInt(1))
 	if err != nil {
 		t.Fatal("error finding key:", err)
 	}
-	if !bytes.Equal(actual, firstSampleValue) {
-		t.Fatalf("'%v', expected '%v'\n", actual, firstSampleValue)
+	if !bytes.Equal(first, MockValueInt(1)) {
+		t.Fatalf("'%v', expected '%v'\n", first, MockValueInt(1))
 	}
 
-	actual, err, _ = s.GetFirst(bigSampleKey)
+	second, err, _ = s.GetFirst(MockKeyInt(1000))
 	if err != nil {
 		t.Fatal("error finding key:", err)
 	}
-	if !bytes.Equal(actual, bigSampleValue) {
-		t.Fatalf("'%v', expected '%v'\n", actual, bigSampleValue)
+	if !bytes.Equal(second, MockValueInt(1000)) {
+		t.Fatalf("'%v', expected '%v'\n", second, MockValueInt(1000))
+	}
+	if !bytes.Equal(first, MockValueInt(1)) {
+		t.Fatalf("First value CHANGED '%v', expected '%v'\n", first, MockValueInt(1))
 	}
 
-	actual, err, _ = s.GetFirst(biggerSampleKey)
+	second, err, _ = s.GetFirst(MockKeyInt(65547))
 	if err != nil {
 		t.Fatal("error finding key:", err)
 	}
-	if !bytes.Equal(actual, biggerSampleValue) {
-		t.Fatalf("'%v', expected '%v'\n", actual, biggerSampleValue)
+	if !bytes.Equal(second, MockValueInt(65547)) {
+		t.Fatalf("'%v', expected '%v'\n", second, MockValueInt(65547))
+	}
+	if !bytes.Equal(first, MockValueInt(1)) {
+		t.Fatalf("First value CHANGED '%v', expected '%v'\n", first, MockValueInt(1))
 	}
 }
 
 func TestIterator(t *testing.T) {
-	i := sampleIterator(t)
+	f, r := fakeDataReader(t, true)
+	defer os.Remove(f)
+	i := r.GetIterator()
 	ok, err := i.Next()
 
 	if err != nil {
@@ -91,11 +98,11 @@ func TestIterator(t *testing.T) {
 		t.Fatal("next is not true")
 	}
 
-	if !bytes.Equal(i.Key(), firstSampleKey) {
-		t.Fatalf("'%v', expected '%v'\n", i.Key(), firstSampleKey)
+	if !bytes.Equal(i.Key(), MockKeyInt(0)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), MockKeyInt(0))
 	}
-	if !bytes.Equal(i.Value(), firstSampleValue) {
-		t.Fatalf("'%v', expected '%v'\n", i.Value(), firstSampleValue)
+	if !bytes.Equal(i.Value(), MockValueInt(0)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), MockValueInt(0))
 	}
 
 	ok, err = i.Next()
@@ -106,14 +113,14 @@ func TestIterator(t *testing.T) {
 		t.Fatal("next is not true")
 	}
 
-	if !bytes.Equal(i.Key(), secondSampleKey) {
-		t.Fatalf("'%v', expected '%v'\n", i.Key(), secondSampleKey)
+	if !bytes.Equal(i.Key(), MockKeyInt(1)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), MockKeyInt(1))
 	}
-	if !bytes.Equal(i.Value(), secondSampleValue) {
-		t.Fatalf("'%v', expected '%v'\n", i.Value(), secondSampleValue)
+	if !bytes.Equal(i.Value(), MockValueInt(1)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), MockValueInt(1))
 	}
 
-	ok, err = i.Seek(bigSampleKey)
+	ok, err = i.Seek(MockKeyInt(65537))
 	if err != nil {
 		t.Fatal("error in seek:", err)
 	}
@@ -121,14 +128,14 @@ func TestIterator(t *testing.T) {
 		t.Fatal("seek is not true")
 	}
 
-	if !bytes.Equal(i.Key(), bigSampleKey) {
-		t.Fatalf("'%v', expected '%v'\n", i.Key(), bigSampleKey)
+	if !bytes.Equal(i.Key(), MockKeyInt(65537)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), MockKeyInt(65537))
 	}
-	if !bytes.Equal(i.Value(), bigSampleValue) {
-		t.Fatalf("'%v', expected '%v'\n", i.Value(), bigSampleValue)
+	if !bytes.Equal(i.Value(), MockValueInt(65537)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), MockValueInt(65537))
 	}
 
-	ok, err = i.Seek(biggerSampleKey)
+	ok, err = i.Seek(MockKeyInt(75537))
 	if err != nil {
 		t.Fatal("error in seek:", err)
 	}
@@ -136,16 +143,18 @@ func TestIterator(t *testing.T) {
 		t.Fatal("seek is not true")
 	}
 
-	if !bytes.Equal(i.Key(), biggerSampleKey) {
-		t.Fatalf("'%v', expected '%v'\n", i.Key(), biggerSampleKey)
+	if !bytes.Equal(i.Key(), MockKeyInt(75537)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Key(), MockKeyInt(75537))
 	}
-	if !bytes.Equal(i.Value(), biggerSampleValue) {
-		t.Fatalf("'%v', expected '%v'\n", i.Value(), biggerSampleValue)
+	if !bytes.Equal(i.Value(), MockValueInt(75537)) {
+		t.Fatalf("'%v', expected '%v'\n", i.Value(), MockValueInt(75537))
 	}
 }
 
 func TestSinglePrefix(t *testing.T) {
-	i := sampleIterator(t)
+	f, r := fakeDataReader(t, true)
+	defer os.Remove(f)
+	i := r.GetIterator()
 
 	res, err := i.AllForPrfixes([][]byte{[]byte{0, 0, 1}})
 	if err != nil {
@@ -156,27 +165,27 @@ func TestSinglePrefix(t *testing.T) {
 		t.Fatalf("Wrong number of matched keys: %d instead of %d", len(res), 256)
 	}
 
-	k := string([]byte{0, 0, 1, 255})
+	k := string(MockKeyInt(511))
 	if v, ok := res[k]; !ok {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
 		if len(v) != 1 {
 			t.Fatalf("Wrong number of results for ~511: %d (%v)", len(v), v)
 		}
-		if !bytes.Equal(v[0], []byte("~511")) {
+		if !bytes.Equal(v[0], MockValueInt(511)) {
 			t.Fatal("bad value:", v[0])
 		}
 	}
 
-	k = string([]byte{0, 0, 1, 0})
+	k = string(MockKeyInt(256))
 	if v, ok := res[k]; !ok {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
 		if len(v) != 1 {
 			t.Fatalf("Wrong number of results for ~256: %d (%v)", len(v), v)
 		}
-		if !bytes.Equal(v[0], []byte("~256")) {
-			t.Fatal("bad value:", v[0])
+		if !bytes.Equal(v[0], MockValueInt(256)) {
+			t.Fatalf("bad value: %s vs %s", v[0], MockValueInt(256))
 		}
 	}
 
@@ -194,8 +203,8 @@ func TestSinglePrefix(t *testing.T) {
 	if v, ok := res[k]; !ok {
 		t.Fatalf("Key %v not in res %v", k, res)
 	} else {
-		if !bytes.Equal(v[0], []byte("~286")) {
-			t.Fatal("bad value:", v[0])
+		if !bytes.Equal(v[0], MockValueInt(286)) {
+			t.Fatal("bad value:", v[0], MockValueInt(286))
 		}
 	}
 }
