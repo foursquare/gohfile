@@ -76,7 +76,7 @@ func (w *Writer) Write(k, v []byte) error {
 	if _, err := w.curBlockBuf.Write(v); err != nil {
 		return err
 	}
-	w.header.entryCount += 1
+	w.header.EntryCount += 1
 	return nil
 }
 
@@ -138,7 +138,7 @@ func (w *Writer) Close() error {
 
 func (w *Writer) flushBlock() error {
 	if w.debug {
-		log.Printf("[Writer.flushBlock] flushing block %d (%d keys, %db)", len(w.blocks), w.header.entryCount, w.curBlockBuf.Len())
+		log.Printf("[Writer.flushBlock] flushing block %d (%d keys, %db)", len(w.blocks), w.header.EntryCount, w.curBlockBuf.Len())
 	}
 	block := Block{w.curOffset, uint32(w.curBlockBuf.Len()), w.curBlockFirstKey}
 	w.header.totalUncompressedDataBytes += uint64(w.curBlockBuf.Len())
@@ -261,7 +261,7 @@ func (w *Writer) flushHeader() error {
 	if err := binary.Write(w.fp, binary.BigEndian, w.header.totalUncompressedDataBytes); err != nil {
 		return err
 	}
-	if err := binary.Write(w.fp, binary.BigEndian, w.header.entryCount); err != nil {
+	if err := binary.Write(w.fp, binary.BigEndian, w.header.EntryCount); err != nil {
 		return err
 	}
 	if err := binary.Write(w.fp, binary.BigEndian, w.header.compressionCodec); err != nil {

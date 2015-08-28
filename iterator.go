@@ -24,8 +24,8 @@ type Iterator struct {
 
 func NewIterator(r *Reader) *Iterator {
 	var buf []byte
-	if r.header.compressionCodec > CompressionNone {
-		buf = make([]byte, int(float64(r.header.totalUncompressedDataBytes/uint64(len(r.index)))*1.5))
+	if r.compressionCodec > CompressionNone {
+		buf = make([]byte, int(float64(r.totalUncompressedDataBytes/uint64(len(r.index)))*1.5))
 	}
 
 	it := Iterator{r, 0, nil, 0, buf, nil, nil, OrderedOps{nil}}

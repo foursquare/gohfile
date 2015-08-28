@@ -25,15 +25,15 @@ type Reader struct {
 	majorVersion uint32
 	minorVersion uint32
 
-	header Header
-	index  []Block
+	Header
+	index []Block
 
 	scannerCache  chan *Scanner
 	iteratorCache chan *Iterator
 }
 
 type Header struct {
-	index int
+	offset int
 
 	fileInfoOffset             uint64
 	dataIndexOffset            uint64
@@ -41,7 +41,7 @@ type Header struct {
 	metaIndexOffset            uint64
 	metaIndexCount             uint32
 	totalUncompressedDataBytes uint64
-	entryCount                 uint32
+	EntryCount                 uint32
 	compressionCodec           uint32
 }
 
@@ -92,10 +92,11 @@ func NewReaderFromConfig(cfg CollectionConfig) (*Reader, error) {
 	hfile.majorVersion = v & 0x00ffffff
 	hfile.minorVersion = v >> 24
 
-	hfile.header, err = hfile.newHeader(hfile.mmap)
+	err = hfile.readHeader(hfile.mmap)
 	if err != nil {
-		return hfile, err
+		return nil, err
 	}
+
 	err = hfile.loadIndex(hfile.mmap)
 	if err != nil {
 		return hfile, err
@@ -106,8 +107,8 @@ func NewReaderFromConfig(cfg CollectionConfig) (*Reader, error) {
 }
 
 func (r *Reader) PrintDebugInfo(out io.Writer, includeStartKeys int) {
-	fmt.Fprintln(out, "entries: ", r.header.entryCount)
-	fmt.Fprintf(out, "compressed: %v (codec: %d)\n", r.header.compressionCodec != CompressionNone, r.header.compressionCodec)
+	fmt.Fprintln(out, "entries: ", r.EntryCount)
+	fmt.Fprintf(out, "compressed: %v (codec: %d)\n", r.compressionCodec != CompressionNone, r.compressionCodec)
 	fmt.Fprintln(out, "blocks: ", len(r.index))
 	for i, blk := range r.index {
 		if i > includeStartKeys {
@@ -118,40 +119,38 @@ func (r *Reader) PrintDebugInfo(out io.Writer, includeStartKeys int) {
 	}
 }
 
-func (r *Reader) newHeader(mmap mmap.MMap) (Header, error) {
-	header := Header{}
-
+func (r *Reader) readHeader(mmap mmap.MMap) error {
 	if r.majorVersion != 1 || r.minorVersion != 0 {
-		return header, fmt.Errorf("wrong version: %d.%d", r.majorVersion, r.minorVersion)
+		return fmt.Errorf("wrong version: %d.%d", r.majorVersion, r.minorVersion)
 	}
 
-	header.index = len(mmap) - 60
-	buf := bytes.NewReader(mmap[header.index:])
+	r.Header.offset = len(mmap) - 60
+	buf := bytes.NewReader(mmap[r.Header.offset:])
 
 	headerMagic := make([]byte, 8)
 	buf.Read(headerMagic)
 	if bytes.Compare(headerMagic, TrailerMagic) != 0 {
-		return header, errors.New("bad header magic")
+		return errors.New("bad header magic")
 	}
 
-	binary.Read(buf, binary.BigEndian, &header.fileInfoOffset)
-	binary.Read(buf, binary.BigEndian, &header.dataIndexOffset)
-	binary.Read(buf, binary.BigEndian, &header.dataIndexCount)
-	binary.Read(buf, binary.BigEndian, &header.metaIndexOffset)
-	binary.Read(buf, binary.BigEndian, &header.metaIndexCount)
-	binary.Read(buf, binary.BigEndian, &header.totalUncompressedDataBytes)
-	binary.Read(buf, binary.BigEndian, &header.entryCount)
-	binary.Read(buf, binary.BigEndian, &header.compressionCodec)
-	return header, nil
+	binary.Read(buf, binary.BigEndian, &r.fileInfoOffset)
+	binary.Read(buf, binary.BigEndian, &r.dataIndexOffset)
+	binary.Read(buf, binary.BigEndian, &r.dataIndexCount)
+	binary.Read(buf, binary.BigEndian, &r.metaIndexOffset)
+	binary.Read(buf, binary.BigEndian, &r.metaIndexCount)
+	binary.Read(buf, binary.BigEndian, &r.totalUncompressedDataBytes)
+	binary.Read(buf, binary.BigEndian, &r.EntryCount)
+	binary.Read(buf, binary.BigEndian, &r.compressionCodec)
+	return nil
 }
 
 func (r *Reader) loadIndex(mmap mmap.MMap) error {
 
-	dataIndexEnd := r.header.metaIndexOffset
-	if r.header.metaIndexOffset == 0 {
-		dataIndexEnd = uint64(r.header.index)
+	dataIndexEnd := r.metaIndexOffset
+	if r.metaIndexOffset == 0 {
+		dataIndexEnd = uint64(r.Header.offset)
 	}
-	buf := bytes.NewReader(mmap[r.header.dataIndexOffset:dataIndexEnd])
+	buf := bytes.NewReader(mmap[r.dataIndexOffset:dataIndexEnd])
 
 	dataIndexMagic := make([]byte, 8)
 	buf.Read(dataIndexMagic)
@@ -215,7 +214,7 @@ func (r *Reader) GetBlockBuf(i int, dst []byte) ([]byte, error) {
 
 	block := r.index[i]
 
-	switch r.header.compressionCodec {
+	switch r.compressionCodec {
 	case CompressionNone:
 		dst = r.mmap[block.offset : block.offset+uint64(block.size)]
 	case CompressionSnappy:
@@ -230,7 +229,7 @@ func (r *Reader) GetBlockBuf(i int, dst []byte) ([]byte, error) {
 			return nil, err
 		}
 	default:
-		return nil, errors.New("Unsupported compression codec " + string(r.header.compressionCodec))
+		return nil, errors.New("Unsupported compression codec " + string(r.compressionCodec))
 	}
 
 	if bytes.Compare(dst[0:8], DataMagic) != 0 {
