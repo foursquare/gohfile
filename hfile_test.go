@@ -216,3 +216,59 @@ func TestSinglePrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestMulti(t *testing.T) {
+	f, r := fakeDataReader(t, true, true)
+	defer os.Remove(f)
+	s := r.GetScanner()
+
+	var first, second [][]byte
+	expectedFirst := MockMultiValueInt(1, 0)
+	var err error
+
+	first, err = s.GetAll(MockKeyInt(1))
+	if len(first) != 3 {
+		t.Fatalf("wrong number of values for 1: %d", len(first))
+	}
+	if err != nil {
+		t.Fatal("error finding key:", err)
+	}
+	if !bytes.Equal(first[0], expectedFirst) {
+		t.Fatalf("'%v', expected '%v'\n", first[0], expectedFirst)
+	}
+
+	second, err = s.GetAll(MockKeyInt(1000))
+	if err != nil {
+		t.Fatal("error finding key:", err)
+	}
+	if actual := len(second); actual != 1 {
+		t.Fatalf("wrong number of values for 1000: %d", actual)
+	}
+	if expected := MockValueInt(1000); !bytes.Equal(second[0], expected) {
+		t.Fatalf("'%s', expected '%s'\n", second[0], expected)
+	}
+
+	if !bytes.Equal(first[0], expectedFirst) {
+		t.Fatalf("First value CHANGED '%v', expected '%v'\n", first[0], expectedFirst)
+	}
+
+	second, err = s.GetAll(MockKeyInt(1001))
+	if err != nil {
+		t.Fatal("error finding key:", err)
+	}
+	if actual := len(second); actual != 3 {
+		t.Fatalf("wrong number of values for 1001: %d", actual)
+	}
+	if expected, actual := MockMultiValueInt(1001, 0), second[0]; !bytes.Equal(actual, expected) {
+		t.Fatalf("'%v', expected '%v'\n", actual, expected)
+	}
+	if expected, actual := MockMultiValueInt(1001, 1), second[1]; !bytes.Equal(actual, expected) {
+		t.Fatalf("'%v', expected '%v'\n", actual, expected)
+	}
+	if expected, actual := MockMultiValueInt(1001, 2), second[2]; !bytes.Equal(actual, expected) {
+		t.Fatalf("'%v', expected '%v'\n", actual, expected)
+	}
+	if !bytes.Equal(first[0], expectedFirst) {
+		t.Fatalf("First value CHANGED '%v', expected '%v'\n", first[0], expectedFirst)
+	}
+}

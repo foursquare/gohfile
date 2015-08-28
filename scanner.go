@@ -146,7 +146,7 @@ func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bo
 				*pos = i + valLen
 				return ret, nil, true
 			} else {
-				acc = append(acc, buf[i:i+valLen])
+				acc = append(acc, ret)
 				i += valLen // now on next length pair
 			}
 		case cmp > 0:
