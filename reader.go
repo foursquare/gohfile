@@ -52,11 +52,11 @@ type Block struct {
 }
 
 func NewReader(name, path string, lock, debug bool) (*Reader, error) {
-	return NewReaderFromConfig(CollectionConfig{name, path, lock, debug})
+	return NewReaderFromConfig(CollectionConfig{name, path, path, lock, debug})
 }
 
 func NewReaderFromConfig(cfg CollectionConfig) (*Reader, error) {
-	f, err := os.OpenFile(cfg.Path, os.O_RDONLY, 0)
+	f, err := os.OpenFile(cfg.LocalPath, os.O_RDONLY, 0)
 
 	if err != nil {
 		return nil, err

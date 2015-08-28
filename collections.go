@@ -9,7 +9,10 @@ type CollectionConfig struct {
 	Name string
 
 	// The Hfile itself.
-	Path string
+	SourcePath string
+
+	// A local copy of SourcePath, if SourcePath is remote, otherwise the same as SourcePath.
+	LocalPath string
 
 	// If the collection data should be kept in-memory (via mlock).
 	InMem bool
