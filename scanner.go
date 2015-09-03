@@ -139,16 +139,17 @@ func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bo
 		switch {
 		case cmp == 0:
 			i += 8 + keyLen
+
 			ret := make([]byte, valLen)
 			copy(ret, buf[i:i+valLen])
 
+			i += valLen // now on next length pair
+
 			if first {
-				*pos = i + valLen
+				*pos = i
 				return ret, nil, true
-			} else {
-				acc = append(acc, ret)
-				i += valLen // now on next length pair
 			}
+			acc = append(acc, ret)
 		case cmp > 0:
 			*pos = i
 			return nil, acc, len(acc) > 0
