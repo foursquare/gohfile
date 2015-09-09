@@ -59,7 +59,7 @@ func NewReaderFromConfig(cfg CollectionConfig) (*Reader, error) {
 	f, err := os.OpenFile(cfg.LocalPath, os.O_RDONLY, 0)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error opening file (%s): %v", cfg.LocalPath, err)
+		return nil, fmt.Errorf("[Reader] Error opening file (%s): %v", cfg.LocalPath, err)
 	}
 
 	hfile := new(Reader)

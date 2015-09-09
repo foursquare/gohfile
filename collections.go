@@ -43,7 +43,10 @@ func LoadCollections(collections []*CollectionConfig, cache string) (*Collection
 		return nil, fmt.Errorf("no collections to load!")
 	}
 
-	downloadCollections(collections, cache)
+	if err := downloadCollections(collections, cache); err != nil {
+		log.Println("[LoadCollections] Error fetching collections: ", err)
+		return nil, err
+	}
 
 	for _, cfg := range collections {
 		reader, err := NewReaderFromConfig(*cfg)
