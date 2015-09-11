@@ -150,23 +150,31 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 	if r.metaIndexOffset == 0 {
 		dataIndexEnd = uint64(r.Header.offset)
 	}
-	buf := bytes.NewReader(mmap[r.dataIndexOffset:dataIndexEnd])
 
-	dataIndexMagic := make([]byte, 8)
-	buf.Read(dataIndexMagic)
-	if bytes.Compare(dataIndexMagic, IndexMagic) != 0 {
+	i := r.dataIndexOffset
+
+	if bytes.Compare(mmap[i:i+8], IndexMagic) != 0 {
 		return errors.New("bad data index magic")
 	}
+	i += 8
 
-	for buf.Len() > 0 {
+	for i < dataIndexEnd {
 		dataBlock := Block{}
 
-		binary.Read(buf, binary.BigEndian, &dataBlock.offset)
-		binary.Read(buf, binary.BigEndian, &dataBlock.size)
+		dataBlock.offset = binary.BigEndian.Uint64(mmap[i:])
+		i += uint64(binary.Size(dataBlock.offset))
 
-		firstKeyLen, _ := binary.ReadUvarint(buf)
-		dataBlock.firstKeyBytes = make([]byte, firstKeyLen)
-		buf.Read(dataBlock.firstKeyBytes)
+		dataBlock.size = binary.BigEndian.Uint32(mmap[i:])
+		i += uint64(binary.Size(dataBlock.size))
+
+		firstKeyLen, s := binary.Uvarint(mmap[i:])
+		if s < 1 || firstKeyLen < 1 {
+			return fmt.Errorf("Failed to read key length, err %d", s)
+		}
+		i += uint64(s)
+
+		dataBlock.firstKeyBytes = mmap[i : i+firstKeyLen]
+		i += firstKeyLen
 
 		r.index = append(r.index, dataBlock)
 	}
