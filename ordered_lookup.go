@@ -6,21 +6,21 @@ import (
 )
 
 type OrderedOps struct {
-	LastKey *[]byte
+	lastKey []byte
 }
 
 func (s *OrderedOps) ResetState() {
-	s.LastKey = nil
+	s.lastKey = nil
 }
 
 func (s *OrderedOps) Same(key []byte) bool {
-	return s.LastKey != nil && bytes.Equal(*s.LastKey, key)
+	return s.lastKey != nil && bytes.Equal(s.lastKey, key)
 }
 
 func (s *OrderedOps) CheckIfKeyOutOfOrder(key []byte) error {
-	if s.LastKey != nil && bytes.Compare(*s.LastKey, key) > 0 {
-		return fmt.Errorf("Keys out of order! %v > %v", *s.LastKey, key)
+	if s.lastKey != nil && bytes.Compare(s.lastKey, key) > 0 {
+		return fmt.Errorf("Keys out of order! %v > %v", s.lastKey, key)
 	}
-	s.LastKey = &key
+	s.lastKey = key
 	return nil
 }
