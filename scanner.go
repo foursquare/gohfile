@@ -15,6 +15,9 @@ type Scanner struct {
 	block  []byte
 	pos    *int
 	buf    []byte
+
+	// When off, maybe be faster but may return incorrect results rather than error on out-of-order keys.
+	EnforceKeyOrder bool
 	OrderedOps
 }
 
@@ -23,7 +26,7 @@ func NewScanner(r *Reader) *Scanner {
 	if r.compressionCodec > CompressionNone {
 		buf = make([]byte, int(float64(r.totalUncompressedDataBytes/uint64(len(r.index)))*1.5))
 	}
-	return &Scanner{r, 0, nil, nil, buf, OrderedOps{nil}}
+	return &Scanner{r, 0, nil, nil, buf, true, OrderedOps{nil}}
 }
 
 func (s *Scanner) Reset() {
@@ -34,9 +37,11 @@ func (s *Scanner) Reset() {
 }
 
 func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
-	err := s.CheckIfKeyOutOfOrder(key)
-	if err != nil {
-		return nil, err, false
+	if s.EnforceKeyOrder {
+		err := s.CheckIfKeyOutOfOrder(key)
+		if err != nil {
+			return nil, err, false
+		}
 	}
 
 	if s.reader.index[s.idx].IsAfter(key) {
