@@ -14,7 +14,8 @@ import (
 	"sort"
 
 	"github.com/edsrzf/mmap-go"
-	"github.com/golang/snappy"
+	//"github.com/golang/snappy"
+	"github.com/cockroachdb/c-snappy"
 )
 
 type Reader struct {
