@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"testing"
 )
 
 func MockKeyInt(i int) []byte {
@@ -74,5 +73,5 @@ func TestdataCollectionSet(name string, count int, compress, lock bool) (*Collec
 	} else if err != nil {
 		return nil, err
 	}
-	return LoadCollections([]*CollectionConfig{{name, path, path, lock, testing.Verbose()}}, os.TempDir())
+	return LoadCollections([]*CollectionConfig{{name, path, path, lock, false}}, os.TempDir())
 }
