@@ -3,6 +3,8 @@ package hfile
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
+	"testing"
 )
 
 func MockKeyInt(i int) []byte {
@@ -58,4 +60,19 @@ func WriteMockIntPairs(w *Writer, keyCount int, progress bool, multi bool) error
 
 	w.Close()
 	return nil
+}
+
+func TestdataCollectionSet(name string, count int, compress, lock bool) (*CollectionSet, error) {
+	path := fmt.Sprintf("testdata/%s.%d.hfile", name, count)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err = GenerateMockHfile(path, count, 4098, compress, false, false)
+		if err != nil {
+			cmd := fmt.Sprintf("mockhfile -keys %d -compress=%v %s", count, compress, path)
+			GenerateMockHfile(path, count, 4098, compress, false, false)
+			return nil, fmt.Errorf("%s doesn't exist and generation failed: %v.\ngenerate with:\n\t%s", path, err, cmd)
+		}
+	} else if err != nil {
+		return nil, err
+	}
+	return LoadCollections([]*CollectionConfig{{name, path, path, lock, testing.Verbose()}}, os.TempDir())
 }
