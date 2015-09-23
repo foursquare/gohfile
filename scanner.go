@@ -44,6 +44,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 		}
 	}
 
+	// TODO(davidt): can we use pos?
 	if s.reader.index[s.idx].IsAfter(key) {
 		if s.reader.Debug {
 			log.Printf("[Scanner.blockFor] curBlock after key %s (cur: %d, start: %s)\n",

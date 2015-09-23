@@ -234,6 +234,7 @@ func (r *Reader) GetBlockBuf(i int, dst []byte) ([]byte, error) {
 	case CompressionNone:
 		dst = r.mmap[block.offset : block.offset+uint64(block.size)]
 	case CompressionSnappy:
+		// TODO(davidt): do we sometimes split blocks into sub-blocks?
 		uncompressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset : block.offset+4])
 		if uncompressedByteSize != block.size {
 			return nil, errors.New("mismatched uncompressed block size")
