@@ -73,5 +73,5 @@ func TestdataCollectionSet(name string, count int, compress, lock bool) (*Collec
 	} else if err != nil {
 		return nil, err
 	}
-	return LoadCollections([]*CollectionConfig{{name, path, path, lock, false}}, os.TempDir())
+	return LoadCollections([]*CollectionConfig{{name, path, path, lock, false, name, "", "", ""}}, os.TempDir())
 }

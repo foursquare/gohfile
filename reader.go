@@ -53,7 +53,7 @@ type Block struct {
 }
 
 func NewReader(name, path string, lock, debug bool) (*Reader, error) {
-	return NewReaderFromConfig(CollectionConfig{name, path, path, lock, debug})
+	return NewReaderFromConfig(CollectionConfig{name, path, path, lock, debug, name, "", "", ""})
 }
 
 func NewReaderFromConfig(cfg CollectionConfig) (*Reader, error) {

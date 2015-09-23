@@ -28,6 +28,12 @@ type CollectionConfig struct {
 
 	// Should operations on this collection emit verbose debug output.
 	Debug bool
+
+	// This "collection" may, in fact, be a partition (subset) of some lager (sharded) collection.
+	ParentName      string
+	ShardFunction   string
+	Partition       string
+	TotalPartitions string
 }
 
 type CollectionSet struct {
