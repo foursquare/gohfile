@@ -6,26 +6,25 @@ import (
 	"log"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func tempHfile(t *testing.T, compress bool, blockSize int, keys [][]byte, values [][]byte) (string, *Scanner) {
 	fp, err := ioutil.TempFile("", "demohfile")
-	if err != nil {
-		t.Fatal("error creating tempfile:", err)
-	}
+	assert.Nil(t, err, "error creating tempfile:", err)
+
 	if testing.Verbose() {
 		log.Println("###############")
 		log.Println("Writing temp hfile:", fp.Name())
 		log.Println("###############")
 	}
 	w, err := NewWriter(fp, compress, blockSize, testing.Verbose())
-	if err != nil {
-		t.Fatal("error creating writer:", err)
-	}
+	assert.Nil(t, err, "error creating writer:", err)
+
 	for i, _ := range keys {
-		if err := w.Write(keys[i], values[i]); err != nil {
-			t.Fatal("error writing k-v pair:", err)
-		}
+		err := w.Write(keys[i], values[i])
+		assert.Nil(t, err, "error writing k-v pair:", err)
 	}
 	w.Close()
 
@@ -36,9 +35,8 @@ func tempHfile(t *testing.T, compress bool, blockSize int, keys [][]byte, values
 	}
 
 	r, err := NewReader("demo", fp.Name(), false, testing.Verbose())
-	if err != nil {
-		t.Fatal("error creating reader:", err)
-	}
+	assert.Nil(t, err, "error creating reader:", err)
+
 	s := NewScanner(r)
 
 	return fp.Name(), s
@@ -60,22 +58,14 @@ func TestRoundTrip(t *testing.T) {
 	defer os.Remove(f)
 
 	v, err, found := s.GetFirst(keyI(3))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !found {
-		t.Fatal("not found")
-	}
-	if !bytes.Equal(v, valI(3)) {
-		t.Fatal("bad value", v)
-	}
+	assert.Nil(t, err, err)
+	assert.True(t, found, "not found")
+
+	assert.True(t, bytes.Equal(v, valI(3)), "bad value", v, valI(3))
+
 	v, err, found = s.GetFirst(keyI(5))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if found {
-		t.Fatal("missing key should not have been found.")
-	}
+	assert.Nil(t, err, err)
+	assert.False(t, found, "missing key should not have been found.")
 }
 
 func TestRoundTripCompressed(t *testing.T) {
@@ -86,22 +76,14 @@ func TestRoundTripCompressed(t *testing.T) {
 	defer os.Remove(f)
 
 	v, err, found := s.GetFirst(keyI(3))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !found {
-		t.Fatal("not found")
-	}
-	if !bytes.Equal(v, valI(3)) {
-		t.Fatal("bad value", v)
-	}
+	assert.Nil(t, err, err)
+	assert.True(t, found, "not found")
+
+	assert.True(t, bytes.Equal(v, valI(3)), "bad value", v, valI(3))
+
 	v, err, found = s.GetFirst(keyI(5))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if found {
-		t.Fatal("missing key should not have been found.")
-	}
+	assert.Nil(t, err, err)
+	assert.False(t, found, "missing key should not have been found.")
 }
 
 func TestMultiValueRoundTripCompressed(t *testing.T) {
@@ -112,34 +94,20 @@ func TestMultiValueRoundTripCompressed(t *testing.T) {
 	defer os.Remove(f)
 
 	v, err := s.GetAll(keyI(30))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(v) != 3 {
-		t.Fatal("wrong number of values for key 30", len(v))
-	}
-	if !bytes.Equal(v[1], valI(31)) {
-		t.Fatal("bad value for key 30 (1)", v[1])
-	}
+	assert.Nil(t, err, err)
+	assert.Len(t, v, 3, "wrong number of values for key 30", len(v))
+
+	assert.True(t, bytes.Equal(v[1], valI(31)), "bad value for key 30 (1)", v[1], valI(31))
 
 	v, err = s.GetAll(keyI(40))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(v) != 1 {
-		t.Fatal("wrong number of results for key 40", len(v))
-	}
-	if !bytes.Equal(v[0], valI(40)) {
-		t.Fatal("bad value for key 40", v[0])
-	}
+	assert.Nil(t, err, err)
+	assert.Len(t, v, 1, "wrong number of results for key 40", len(v))
+
+	assert.True(t, bytes.Equal(v[0], valI(40)), "bad value for key 40", v[0], valI(40))
 
 	v, err = s.GetAll(keyI(50))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(v) > 0 {
-		t.Fatal("should not find missing keys")
-	}
+	assert.Nil(t, err, err)
+	assert.Len(t, v, 0, "should not find missing keys")
 }
 
 func TestBigRoundTripCompressed(t *testing.T) {
@@ -155,13 +123,7 @@ func TestBigRoundTripCompressed(t *testing.T) {
 	defer os.Remove(f)
 
 	v, err, found := s.GetFirst(keyI(501))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !found {
-		t.Fatal("not found")
-	}
-	if !bytes.Equal(v, valI(501)) {
-		t.Fatal("bad value")
-	}
+	assert.Nil(t, err, err)
+	assert.True(t, found, "not found")
+	assert.True(t, bytes.Equal(v, valI(501)), "bad value", v, valI(501))
 }

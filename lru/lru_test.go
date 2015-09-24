@@ -2,6 +2,8 @@ package lru
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLRU(t *testing.T) {
@@ -12,36 +14,29 @@ func TestLRU(t *testing.T) {
 
 	lru := NewLRU(3)
 
-	if _, ok := lru.Get(1); ok {
-		t.Fatal("empty lru should return nothing")
-	}
+	_, ok := lru.Get(1)
+	assert.False(t, ok, "empty lru should return nothing")
 
 	lru.Add(1, b1)
-	if _, ok := lru.Get(1); !ok {
-		t.Fatal("missing only item")
-	}
+
+	_, ok = lru.Get(1)
+	assert.True(t, ok, "missing only item")
 
 	lru.Add(2, b2)
 	lru.Add(3, b3)
 
-	if _, ok := lru.Get(1); !ok {
-		t.Fatal("missing 1")
-	}
-	if _, ok := lru.Get(2); !ok {
-		t.Fatal("missing 2")
-	}
-	if _, ok := lru.Get(3); !ok {
-		t.Fatal("missing 3")
-	}
-	if _, ok := lru.Get(4); ok {
-		t.Fatal("phantom item")
-	}
-	lru.Add(4, b4)
-	if _, ok := lru.Get(1); ok {
-		t.Fatal("phantom item")
-	}
-	if _, ok := lru.Get(4); !ok {
-		t.Fatal("item!")
-	}
+	_, ok = lru.Get(1)
+	assert.True(t, ok, "missing only item")
+	_, ok = lru.Get(2)
+	assert.True(t, ok, "missing only item")
+	_, ok = lru.Get(3)
+	assert.True(t, ok, "missing only item")
+	_, ok = lru.Get(4)
+	assert.False(t, ok, "phantom item")
 
+	lru.Add(4, b4)
+	_, ok = lru.Get(1)
+	assert.False(t, ok, "phantom item")
+	_, ok = lru.Get(4)
+	assert.True(t, ok, "missing item 4")
 }
