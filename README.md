@@ -1,4 +1,6 @@
 # HFile v1 implementation in Go
+[![Build Status](https://api.travis-ci.org/foursquare/gohfile.svg)](https://travis-ci.org/foursquare/gohfile)
+
 HFile is a KV file format (borrowed from HBase, based on SSTables) used at foursquare as the storage format for our distributed KV store.
 
 HFiles are designed to be simultaneously a) easily to generate incrementally (metadata is flushed at the end) and b) easy to serve / search as-is (thanks to an index), making them friendly to pipelines that regenerate large datasets and need to bulk-load them into production regularly.
