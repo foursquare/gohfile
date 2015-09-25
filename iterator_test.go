@@ -77,7 +77,7 @@ func TestSinglePrefix(t *testing.T) {
 	defer os.Remove(f)
 	i := r.GetIterator()
 
-	res, err := i.AllForPrfixes([][]byte{[]byte{0, 0, 1}})
+	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}})
 	if err != nil {
 		t.Fatal("error finding all for prefixes:", err)
 	}

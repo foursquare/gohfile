@@ -29,7 +29,7 @@ type CollectionConfig struct {
 	// Should operations on this collection emit verbose debug output.
 	Debug bool
 
-	// This "collection" may, in fact, be a partition (subset) of some lager (sharded) collection.
+	// This "collection" may, in fact, be a partition (subset) of some larger (sharded) collection.
 	ParentName      string
 	ShardFunction   string
 	Partition       string

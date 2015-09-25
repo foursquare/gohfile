@@ -41,21 +41,21 @@ func (it *Iterator) Reset() {
 	it.ResetState()
 }
 
-func (it *Iterator) Seek(key []byte) (bool, error) {
+func (it *Iterator) Seek(requested []byte) (bool, error) {
 	var err error
 
-	if err = it.CheckIfKeyOutOfOrder(key); err != nil {
+	if err = it.CheckIfKeyOutOfOrder(requested); err != nil {
 		return false, err
 	}
 
-	if it.key != nil && After(it.key, key) {
+	if it.key != nil && !After(requested, it.key) {
 		if it.hfile.Debug {
-			log.Println("[Iterator.Seek] already past")
+			log.Println("[Iterator.Seek] already at or past requested")
 		}
 		return true, nil
 	}
 
-	blk := it.hfile.FindBlock(it.dataBlockIndex, key)
+	blk := it.hfile.FindBlock(it.dataBlockIndex, requested)
 	if it.hfile.Debug {
 		log.Printf("[Iterator.Seek] picked block %d, cur %d\n", blk, it.dataBlockIndex)
 		if len(it.hfile.index) > blk+1 {
@@ -79,25 +79,26 @@ func (it *Iterator) Seek(key []byte) (bool, error) {
 	}
 
 	if it.hfile.Debug {
-		log.Printf("[Iterator.Seek] looking for %v (starting at %v)\n", key, it.key)
+		log.Printf("[Iterator.Seek] looking for %v (starting at %v)\n", requested, it.key)
 	}
 
 	for ok {
-		after := After(key, it.key)
+		after := After(requested, it.key) // the key we are looking for is in our future.
+
 		if it.hfile.Debug {
 			log.Printf("[Iterator.Seek] \t %v (%v)\n", it.key, after)
 		}
 
-		if err == nil && after {
+		if err == nil && after { // we still need to go forward.
 			ok, err = it.Next()
 		} else {
+			// either we got an error or we no longer need to go forward.
 			if it.hfile.Debug {
 				log.Printf("[Iterator.Seek] done %v (err %v)\n", it.key, err)
 			}
 			return ok, err
 		}
 	}
-
 	if it.hfile.Debug {
 		log.Println("[Iterator.Seek] walked off block")
 	}
@@ -150,7 +151,7 @@ func (it *Iterator) Value() []byte {
 	return ret
 }
 
-func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error) {
+func (it *Iterator) AllForPrefixes(prefixes [][]byte) (map[string][][]byte, error) {
 	res := make(map[string][][]byte)
 
 	var err error
@@ -164,7 +165,7 @@ func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error
 		acc := make([][]byte, 0, 1)
 
 		for ok && bytes.HasPrefix(it.key, prefix) {
-			prev := it.Key()
+			prev := it.key
 			acc = append(acc, it.Value())
 
 			if ok, err = it.Next(); err != nil {
@@ -172,7 +173,9 @@ func (it *Iterator) AllForPrfixes(prefixes [][]byte) (map[string][][]byte, error
 			}
 
 			if !ok || !bytes.Equal(prev, it.key) {
-				res[string(prev)] = acc
+				cp := make([]byte, len(prev))
+				copy(cp, prev)
+				res[string(cp)] = acc
 				acc = make([][]byte, 0, 1)
 			}
 		}
