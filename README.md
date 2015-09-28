@@ -47,4 +47,5 @@ Writers buffer written k-v pairs until they reach `blockSize`, after which the n
 # Authors
 - [Dan Harrison](http://github.com/paperstreet)
 - [David Taylor](http://github.com/dt)
+- [Jacob Kaufman](http://github.com/theevocater)
 
