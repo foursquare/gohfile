@@ -244,6 +244,9 @@ func (r *Reader) GetBlockBuf(i int, dst []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(dst) != int(uncompressedByteSize) {
+			return nil, fmt.Errorf("Wrong size after decompression (snappy sub-blocks?): %d != %d", uncompressedByteSize, len(dst))
+		}
 	default:
 		return nil, errors.New("Unsupported compression codec " + string(r.compressionCodec))
 	}
