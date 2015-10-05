@@ -60,7 +60,7 @@ func TestSinglePrefix(t *testing.T) {
 	defer os.Remove(f)
 	i := r.GetIterator()
 
-	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, 0, nil)
+	res, last, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, 0, nil)
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
 	assert.Len(t, res, 256, "Wrong number of matched keys")
@@ -90,7 +90,7 @@ func TestSinglePrefix(t *testing.T) {
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
 	assert.True(t, compareBytes(v[0], MockValueInt(286)))
 
-
+	assert.Equal(t, last, MockKeyInt(511))
 }
 
 func TestSinglePrefixWithLimit(t *testing.T) {
@@ -99,7 +99,7 @@ func TestSinglePrefixWithLimit(t *testing.T) {
 	i := r.GetIterator()
 
 	limit := int32(10)
-	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, nil)
+	res, last, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, nil)
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
 	assert.Len(t, res, int(limit), "Wrong number of matched keys")
@@ -116,6 +116,8 @@ func TestSinglePrefixWithLimit(t *testing.T) {
 	assert.Len(t, v, 1, "Wrong number of results for ~265")
 	assert.True(t, compareBytes(v[0], MockValueInt(265)))
 
+	assert.Equal(t, last, MockKeyInt(265))
+
 	k = string(MockKeyInt(266))
 	_, ok = res[k]
 	assert.False(t, ok, fmt.Sprintf("Key %v should not be in res %v", k, res))
@@ -127,7 +129,10 @@ func TestSinglePrefixWithLimitAndLastKey(t *testing.T) {
 	i := r.GetIterator()
 
 	limit := int32(10)
-	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, []byte{0, 0, 1, 100})
+	res, last, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, []byte{0, 0, 1, 100})
+
+	assert.Equal(t, last, MockKeyInt(365))
+
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
 	assert.Len(t, res, int(limit), "Wrong number of matched keys")
