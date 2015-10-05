@@ -60,7 +60,7 @@ func TestSinglePrefix(t *testing.T) {
 	defer os.Remove(f)
 	i := r.GetIterator()
 
-	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, nil, nil)
+	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, 0, nil)
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
 	assert.Len(t, res, 256, "Wrong number of matched keys")
@@ -99,7 +99,7 @@ func TestSinglePrefixWithLimit(t *testing.T) {
 	i := r.GetIterator()
 
 	limit := int32(10)
-	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, &limit, nil)
+	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, nil)
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
 	assert.Len(t, res, int(limit), "Wrong number of matched keys")
@@ -127,7 +127,7 @@ func TestSinglePrefixWithLimitAndLastKey(t *testing.T) {
 	i := r.GetIterator()
 
 	limit := int32(10)
-	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, &limit, []byte{0, 0, 1, 100})
+	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, []byte{0, 0, 1, 100})
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
 	assert.Len(t, res, int(limit), "Wrong number of matched keys")
