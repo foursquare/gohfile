@@ -60,7 +60,7 @@ func TestSinglePrefix(t *testing.T) {
 	defer os.Remove(f)
 	i := r.GetIterator()
 
-	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}})
+	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, 0, nil)
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
 	assert.Len(t, res, 256, "Wrong number of matched keys")
@@ -89,4 +89,62 @@ func TestSinglePrefix(t *testing.T) {
 	v, ok = res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
 	assert.True(t, compareBytes(v[0], MockValueInt(286)))
+
+
+}
+
+func TestSinglePrefixWithLimit(t *testing.T) {
+	f, r := fakeDataReader(t, true, false)
+	defer os.Remove(f)
+	i := r.GetIterator()
+
+	limit := int32(10)
+	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, nil)
+	assert.Nil(t, err, "error finding all for prefixes:", err)
+
+	assert.Len(t, res, int(limit), "Wrong number of matched keys")
+
+	k := string(MockKeyInt(256))
+	v, ok := res[k]
+	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
+	assert.Len(t, v, 1, "Wrong number of results for ~256")
+	assert.True(t, compareBytes(v[0], MockValueInt(256)))
+
+	k = string(MockKeyInt(265))
+	v, ok = res[k]
+	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
+	assert.Len(t, v, 1, "Wrong number of results for ~265")
+	assert.True(t, compareBytes(v[0], MockValueInt(265)))
+
+	k = string(MockKeyInt(266))
+	_, ok = res[k]
+	assert.False(t, ok, fmt.Sprintf("Key %v should not be in res %v", k, res))
+}
+
+func TestSinglePrefixWithLimitAndLastKey(t *testing.T) {
+	f, r := fakeDataReader(t, true, false)
+	defer os.Remove(f)
+	i := r.GetIterator()
+
+	limit := int32(10)
+	res, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, []byte{0, 0, 1, 100})
+	assert.Nil(t, err, "error finding all for prefixes:", err)
+
+	assert.Len(t, res, int(limit), "Wrong number of matched keys")
+
+	k := string(MockKeyInt(356))
+	v, ok := res[k]
+	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
+	assert.Len(t, v, 1, "Wrong number of results for ~356")
+	assert.True(t, compareBytes(v[0], MockValueInt(356)))
+
+	k = string(MockKeyInt(365))
+	v, ok = res[k]
+	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
+	assert.Len(t, v, 1, "Wrong number of results for ~365")
+	assert.True(t, compareBytes(v[0], MockValueInt(365)))
+
+	k = string(MockKeyInt(366))
+	_, ok = res[k]
+	assert.False(t, ok, fmt.Sprintf("Key %v should not be in res %v", k, res))
 }

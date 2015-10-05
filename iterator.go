@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"math"
 )
 
 type Iterator struct {
@@ -151,23 +152,37 @@ func (it *Iterator) Value() []byte {
 	return ret
 }
 
-func (it *Iterator) AllForPrefixes(prefixes [][]byte) (map[string][][]byte, error) {
+func (it *Iterator) AllForPrefixes(prefixes [][]byte, limit int32, lastKey []byte) (map[string][][]byte, error) {
+	if (limit <= 0) {
+		limit = math.MaxInt32
+	}
 	res := make(map[string][][]byte)
-
+	values := int32(0)
 	var err error
+
+	if (lastKey != nil) {
+		if _, err := it.Seek(lastKey); err != nil {
+			return nil, err
+		}
+	}
 
 	for _, prefix := range prefixes {
 		ok := false
-		if ok, err = it.Seek(prefix); err != nil {
-			return nil, err
+
+		if lastKey == nil || bytes.Compare(lastKey, prefix) <= 0  {
+			if ok, err = it.Seek(prefix); err != nil {
+				return nil, err
+			}
+		} else {
+			ok = true
 		}
 
 		acc := make([][]byte, 0, 1)
 
-		for ok && bytes.HasPrefix(it.key, prefix) {
+		for ok && bytes.HasPrefix(it.key, prefix) && (values < limit) {
 			prev := it.key
 			acc = append(acc, it.Value())
-
+			values++
 			if ok, err = it.Next(); err != nil {
 				return nil, err
 			}
