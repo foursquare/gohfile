@@ -1,21 +1,12 @@
 package hfile
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func compareBytes(a, e []byte) bool {
-	b := bytes.Equal(a, e)
-	if !b {
-		fmt.Sprintf("'%v', expected '%v'\n", a, e)
-	}
-	return b
-}
 
 func TestIterator(t *testing.T) {
 	f, r := fakeDataReader(t, true, false)
@@ -26,33 +17,29 @@ func TestIterator(t *testing.T) {
 	assert.Nil(t, err, "error creating tempfile:", err)
 	assert.True(t, ok, "next is not true")
 
-	assert.True(t, compareBytes(i.Key(), MockKeyInt(0)))
-
-	assert.True(t, compareBytes(i.Value(), MockValueInt(0)))
+	assert.Equal(t, MockKeyInt(0), i.Key())
+	assert.Equal(t, MockValueInt(0), i.Value())
 
 	ok, err = i.Next()
 	assert.Nil(t, err, "error creating tempfile:", err)
 	assert.True(t, ok, "next is not true")
 
-	assert.True(t, compareBytes(i.Key(), MockKeyInt(1)))
-
-	assert.True(t, compareBytes(i.Value(), MockValueInt(1)))
+	assert.Equal(t, MockKeyInt(1), i.Key())
+	assert.Equal(t, MockValueInt(1), i.Value())
 
 	ok, err = i.Seek(MockKeyInt(65537))
 	assert.Nil(t, err, "error creating tempfile:", err)
 	assert.True(t, ok, "next is not true")
 
-	assert.True(t, compareBytes(i.Key(), MockKeyInt(65537)))
-
-	assert.True(t, compareBytes(i.Value(), MockValueInt(65537)))
+	assert.Equal(t, MockKeyInt(65537), i.Key())
+	assert.Equal(t, MockValueInt(65537), i.Value())
 
 	ok, err = i.Seek(MockKeyInt(75537))
 	assert.Nil(t, err, "error creating tempfile:", err)
 	assert.True(t, ok, "next is not true")
 
-	assert.True(t, compareBytes(i.Key(), MockKeyInt(75537)))
-
-	assert.True(t, compareBytes(i.Value(), MockValueInt(75537)))
+	assert.Equal(t, MockKeyInt(75537), i.Key())
+	assert.Equal(t, MockValueInt(75537), i.Value())
 }
 
 func TestSinglePrefix(t *testing.T) {
@@ -68,14 +55,12 @@ func TestSinglePrefix(t *testing.T) {
 	k := string(MockKeyInt(511))
 	v, ok := res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
-	assert.Len(t, v, 1, "Wrong number of results for ~511")
-	assert.True(t, compareBytes(v[0], MockValueInt(511)))
+	assert.Equal(t, [][]byte{MockValueInt(511)}, v)
 
 	k = string(MockKeyInt(256))
 	v, ok = res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
-	assert.Len(t, v, 1, "Wrong number of results for ~256")
-	assert.True(t, compareBytes(v[0], MockValueInt(256)))
+	assert.Equal(t, [][]byte{MockValueInt(256)}, v)
 
 	k = string([]byte{0, 0, 0, 255})
 	_, ok = res[k]
@@ -88,9 +73,9 @@ func TestSinglePrefix(t *testing.T) {
 	k = string([]byte{0, 0, 1, 30})
 	v, ok = res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
-	assert.True(t, compareBytes(v[0], MockValueInt(286)))
+	assert.Equal(t, MockValueInt(286), v[0])
 
-	assert.Equal(t, last, MockKeyInt(511))
+	assert.Equal(t, MockKeyInt(511), last)
 }
 
 func TestSinglePrefixWithLimit(t *testing.T) {
@@ -107,16 +92,14 @@ func TestSinglePrefixWithLimit(t *testing.T) {
 	k := string(MockKeyInt(256))
 	v, ok := res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
-	assert.Len(t, v, 1, "Wrong number of results for ~256")
-	assert.True(t, compareBytes(v[0], MockValueInt(256)))
+	assert.Equal(t, [][]byte{MockValueInt(256)}, v)
 
 	k = string(MockKeyInt(265))
 	v, ok = res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
-	assert.Len(t, v, 1, "Wrong number of results for ~265")
-	assert.True(t, compareBytes(v[0], MockValueInt(265)))
+	assert.Equal(t, [][]byte{MockValueInt(265)}, v)
 
-	assert.Equal(t, last, MockKeyInt(265))
+	assert.Equal(t, MockKeyInt(265), last)
 
 	k = string(MockKeyInt(266))
 	_, ok = res[k]
@@ -140,14 +123,12 @@ func TestSinglePrefixWithLimitAndLastKey(t *testing.T) {
 	k := string(MockKeyInt(356))
 	v, ok := res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
-	assert.Len(t, v, 1, "Wrong number of results for ~356")
-	assert.True(t, compareBytes(v[0], MockValueInt(356)))
+	assert.Equal(t, [][]byte{MockValueInt(356)}, v)
 
 	k = string(MockKeyInt(365))
 	v, ok = res[k]
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
-	assert.Len(t, v, 1, "Wrong number of results for ~365")
-	assert.True(t, compareBytes(v[0], MockValueInt(365)))
+	assert.Equal(t, [][]byte{MockValueInt(365)}, v)
 
 	k = string(MockKeyInt(366))
 	_, ok = res[k]
