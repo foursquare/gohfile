@@ -75,7 +75,7 @@ func TestSinglePrefix(t *testing.T) {
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
 	assert.Equal(t, MockValueInt(286), v[0])
 
-	assert.Equal(t, MockKeyInt(511), last)
+	assert.Nil(t, last)
 }
 
 func TestSinglePrefixWithLimit(t *testing.T) {
@@ -99,7 +99,7 @@ func TestSinglePrefixWithLimit(t *testing.T) {
 	assert.True(t, ok, fmt.Sprintf("Key %v not in res %v", k, res))
 	assert.Equal(t, [][]byte{MockValueInt(265)}, v)
 
-	assert.Equal(t, MockKeyInt(265), last)
+	assert.Equal(t, MockKeyInt(266), last)
 
 	k = string(MockKeyInt(266))
 	_, ok = res[k]
@@ -114,7 +114,7 @@ func TestSinglePrefixWithLimitAndLastKey(t *testing.T) {
 	limit := int32(10)
 	res, last, err := i.AllForPrefixes([][]byte{[]byte{0, 0, 1}}, limit, []byte{0, 0, 1, 100})
 
-	assert.Equal(t, last, MockKeyInt(365))
+	assert.Equal(t, MockKeyInt(366), last)
 
 	assert.Nil(t, err, "error finding all for prefixes:", err)
 
