@@ -167,48 +167,53 @@ func (it *Iterator) AllForPrefixes(prefixes [][]byte, limit int32, lastKey []byt
 		}
 	}
 
-	var last []byte
+	limitReached := false
 
 	for _, prefix := range prefixes {
 		ok := false
 
-		if lastKey == nil || bytes.Compare(lastKey, prefix) <= 0 {
-			if ok, err = it.Seek(prefix); err != nil {
-				return nil, nil, err
+		if !limitReached {
+			if lastKey == nil || bytes.Compare(lastKey, prefix) <= 0 {
+				if ok, err = it.Seek(prefix); err != nil {
+					return nil, nil, err
+				}
+			} else {
+				ok = preseekOk
 			}
-		} else {
-			ok = preseekOk
+
+			acc := make([][]byte, 0, 1)
+
+			for ok && bytes.HasPrefix(it.key, prefix) && !limitReached {
+				prev := it.key
+				acc = append(acc, it.Value())
+
+				if ok, err = it.Next(); err != nil {
+					return nil, nil, err
+				}
+				values++
+
+				if !ok || !bytes.Equal(prev, it.key) {
+					limitReached = limitReached || values >= limit
+					cp := make([]byte, len(prev))
+					copy(cp, prev)
+					res[string(cp)] = acc
+					acc = make([][]byte, 0, 1)
+				}
+			}
+
+			if !ok {
+				return res, nil, nil
+			}
 		}
 
-		acc := make([][]byte, 0, 1)
-
-		for ok && bytes.HasPrefix(it.key, prefix) {
-			prev := it.key
-			acc = append(acc, it.Value())
-
-			if ok, err = it.Next(); err != nil {
-				return nil, nil, err
-			}
-			values++
-
-			if !ok || !bytes.Equal(prev, it.key) {
-				if values >= limit {
-					// reached limit and at a key boundry or end-of-file
-					if ok && bytes.HasPrefix(it.key, prefix) { // next key is also match
-						last = make([]byte, len(it.key))
-						copy(last, it.key)
-					}
-					ok = false
-				}
-				cp := make([]byte, len(prev))
-				copy(cp, prev)
-				res[string(cp)] = acc
-				acc = make([][]byte, 0, 1)
-			}
+		if limitReached && ok && bytes.HasPrefix(it.key, prefix) {
+			last := make([]byte, len(it.key))
+			copy(last, it.key)
+			return res, last, nil
 		}
 	}
 
-	return res, last, nil
+	return res, nil, nil
 }
 
 func (it *Iterator) Release() {
