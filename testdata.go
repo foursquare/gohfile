@@ -12,6 +12,10 @@ func MockKeyInt(i int) []byte {
 	return buf
 }
 
+func MockValueForMockKey(key []byte) []byte {
+	return MockValueInt(int(binary.BigEndian.Uint32(key)))
+}
+
 func MockValueInt(i int) []byte {
 	return []byte(fmt.Sprintf("value-for-%d", i))
 }
