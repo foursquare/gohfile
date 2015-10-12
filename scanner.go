@@ -16,6 +16,8 @@ type Scanner struct {
 	pos    *int
 	buf    []byte
 
+	lastKey []byte // this is NOT supposed to be useful for anything other than negatives. see GetFirst.
+
 	// When off, maybe be faster but may return incorrect results rather than error on out-of-order keys.
 	EnforceKeyOrder bool
 	OrderedOps
@@ -26,13 +28,14 @@ func NewScanner(r *Reader) *Scanner {
 	if r.compressionCodec > CompressionNone {
 		buf = make([]byte, int(float64(r.totalUncompressedDataBytes/uint64(len(r.index)))*1.5))
 	}
-	return &Scanner{r, 0, nil, nil, buf, true, OrderedOps{nil}}
+	return &Scanner{r, 0, nil, nil, buf, nil, true, OrderedOps{nil}}
 }
 
 func (s *Scanner) Reset() {
 	s.idx = 0
 	s.block = nil
 	s.pos = nil
+	s.lastKey = nil
 	s.ResetState()
 }
 
@@ -44,6 +47,7 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 		}
 	}
 
+	// TODO(davidt): can we use pos?
 	if s.reader.index[s.idx].IsAfter(key) {
 		if s.reader.Debug {
 			log.Printf("[Scanner.blockFor] curBlock after key %s (cur: %d, start: %s)\n",
@@ -93,6 +97,9 @@ func (s *Scanner) blockFor(key []byte) ([]byte, error, bool) {
 }
 
 func (s *Scanner) GetFirst(key []byte) ([]byte, error, bool) {
+	if s.lastKey != nil && After(s.lastKey, key) {
+		return nil, nil, false
+	}
 	data, err, ok := s.blockFor(key)
 
 	if !ok {
@@ -113,6 +120,9 @@ func (s *Scanner) GetFirst(key []byte) ([]byte, error, bool) {
 }
 
 func (s *Scanner) GetAll(key []byte) ([][]byte, error) {
+	if s.lastKey != nil && After(s.lastKey, key) {
+		return nil, nil
+	}
 	data, err, ok := s.blockFor(key)
 
 	if !ok {
@@ -152,11 +162,13 @@ func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bo
 
 			if first {
 				*pos = i
+				s.lastKey = buf[i+8 : i+8+keyLen]
 				return ret, nil, true
 			}
 			acc = append(acc, ret)
 		case cmp > 0:
 			*pos = i
+			s.lastKey = buf[i+8 : i+8+keyLen]
 			return nil, acc, len(acc) > 0
 		default:
 			i += 8 + keyLen + valLen
@@ -164,6 +176,11 @@ func (s *Scanner) getValuesFromBuffer(buf []byte, pos *int, key []byte, first bo
 	}
 
 	*pos = i
+	if len(s.reader.index) > s.idx+1 {
+		s.lastKey = s.reader.index[s.idx+1].firstKeyBytes
+	} else {
+		s.lastKey = nil
+	}
 
 	if s.reader.Debug {
 		log.Printf("[Scanner.getValuesFromBuffer] walked off block\n")
