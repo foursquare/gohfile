@@ -13,6 +13,14 @@ import (
 	"strings"
 )
 
+type LoadMethod int
+
+const (
+	CopiedToMem LoadMethod = iota
+	MemlockFile
+	OnDisk
+)
+
 type CollectionConfig struct {
 	// The Name of the collection.
 	Name string
@@ -24,7 +32,7 @@ type CollectionConfig struct {
 	LocalPath string
 
 	// If the collection data should be kept in-memory (via mlock).
-	InMem bool
+	LoadMethod LoadMethod
 
 	// Should operations on this collection emit verbose debug output.
 	Debug bool

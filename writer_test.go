@@ -34,7 +34,7 @@ func tempHfile(t *testing.T, compress bool, blockSize int, keys [][]byte, values
 		log.Println("###############")
 	}
 
-	r, err := NewReader("demo", fp.Name(), false, testing.Verbose())
+	r, err := NewReader("demo", fp.Name(), CopiedToMem, testing.Verbose())
 	assert.Nil(t, err, "error creating reader:", err)
 
 	s := NewScanner(r)
