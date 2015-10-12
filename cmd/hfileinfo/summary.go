@@ -14,7 +14,7 @@ func main() {
 		os.Exit(-1)
 	}
 
-	if r, err := hfile.NewReader(os.Args[1], os.Args[1], false, true); err != nil {
+	if r, err := hfile.NewReader(os.Args[1], os.Args[1], hfile.OnDisk, true); err != nil {
 		log.Fatal(err)
 	} else {
 		r.PrintDebugInfo(os.Stdout, 10)

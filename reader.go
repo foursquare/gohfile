@@ -10,10 +10,8 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"sort"
 
-	"github.com/edsrzf/mmap-go"
 	//"github.com/golang/snappy"
 	"github.com/cockroachdb/c-snappy"
 )
@@ -21,7 +19,7 @@ import (
 type Reader struct {
 	CollectionConfig
 
-	mmap mmap.MMap
+	data []byte
 
 	majorVersion uint32
 	minorVersion uint32
@@ -52,53 +50,30 @@ type Block struct {
 	firstKeyBytes []byte
 }
 
-func NewReader(name, path string, lock, debug bool) (*Reader, error) {
-	return NewReaderFromConfig(CollectionConfig{name, path, path, lock, debug, name, "", "", ""})
+func NewReader(name, path string, load LoadMethod, debug bool) (*Reader, error) {
+	return NewReaderFromConfig(CollectionConfig{name, path, path, load, debug, name, "", "", ""})
 }
 
 func NewReaderFromConfig(cfg CollectionConfig) (*Reader, error) {
-	f, err := os.OpenFile(cfg.LocalPath, os.O_RDONLY, 0)
-
-	if err != nil {
-		return nil, fmt.Errorf("[Reader] Error opening file (%s): %v", cfg.LocalPath, err)
-	}
-
 	hfile := new(Reader)
 	hfile.CollectionConfig = cfg
 
-	hfile.mmap, err = mmap.Map(f, mmap.RDONLY, 0)
-
-	if err != nil {
+	if data, err := loadFile(cfg.Name, cfg.LocalPath, cfg.LoadMethod); err != nil {
 		return nil, err
+	} else {
+		hfile.data = data
 	}
 
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	if hfile.InMem {
-		mb := 1024.0 * 1024.0
-		log.Printf("[Reader.NewReader] locking %s (%.02fmb)...\n", hfile.Name, float64(fi.Size())/mb)
-		if err = hfile.mmap.Lock(); err != nil {
-			log.Printf("[Reader.NewReader] error locking %s: %s\n", hfile.Name, err.Error())
-			return nil, err
-		}
-		log.Printf("[Reader.NewReader] locked %s.\n", hfile.Name)
-	} else if hfile.Debug {
-		log.Printf("[Reader.NewReader] Not locking %s...\n", hfile.Name)
-	}
-
-	v := binary.BigEndian.Uint32(hfile.mmap[len(hfile.mmap)-4:])
+	v := binary.BigEndian.Uint32(hfile.data[len(hfile.data)-4:])
 	hfile.majorVersion = v & 0x00ffffff
 	hfile.minorVersion = v >> 24
 
-	err = hfile.readHeader(hfile.mmap)
+	err := hfile.readHeader(hfile.data)
 	if err != nil {
 		return nil, err
 	}
 
-	err = hfile.loadIndex(hfile.mmap)
+	err = hfile.loadIndex(hfile.data)
 	if err != nil {
 		return hfile, err
 	}
@@ -120,13 +95,13 @@ func (r *Reader) PrintDebugInfo(out io.Writer, includeStartKeys int) {
 	}
 }
 
-func (r *Reader) readHeader(mmap mmap.MMap) error {
+func (r *Reader) readHeader(data []byte) error {
 	if r.majorVersion != 1 || r.minorVersion != 0 {
 		return fmt.Errorf("wrong version: %d.%d", r.majorVersion, r.minorVersion)
 	}
 
-	r.Header.offset = len(mmap) - 60
-	buf := bytes.NewReader(mmap[r.Header.offset:])
+	r.Header.offset = len(data) - 60
+	buf := bytes.NewReader(data[r.Header.offset:])
 
 	headerMagic := make([]byte, 8)
 	buf.Read(headerMagic)
@@ -145,7 +120,7 @@ func (r *Reader) readHeader(mmap mmap.MMap) error {
 	return nil
 }
 
-func (r *Reader) loadIndex(mmap mmap.MMap) error {
+func (r *Reader) loadIndex(data []byte) error {
 
 	dataIndexEnd := r.metaIndexOffset
 	if r.metaIndexOffset == 0 {
@@ -154,7 +129,7 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 
 	i := r.dataIndexOffset
 
-	if bytes.Compare(mmap[i:i+8], IndexMagic) != 0 {
+	if bytes.Compare(data[i:i+8], IndexMagic) != 0 {
 		return errors.New("bad data index magic")
 	}
 	i += 8
@@ -162,19 +137,19 @@ func (r *Reader) loadIndex(mmap mmap.MMap) error {
 	for i < dataIndexEnd {
 		dataBlock := Block{}
 
-		dataBlock.offset = binary.BigEndian.Uint64(mmap[i:])
+		dataBlock.offset = binary.BigEndian.Uint64(data[i:])
 		i += uint64(binary.Size(dataBlock.offset))
 
-		dataBlock.size = binary.BigEndian.Uint32(mmap[i:])
+		dataBlock.size = binary.BigEndian.Uint32(data[i:])
 		i += uint64(binary.Size(dataBlock.size))
 
-		firstKeyLen, s := binary.Uvarint(mmap[i:])
+		firstKeyLen, s := binary.Uvarint(data[i:])
 		if s < 1 || firstKeyLen < 1 {
 			return fmt.Errorf("Failed to read key length, err %d", s)
 		}
 		i += uint64(s)
 
-		dataBlock.firstKeyBytes = mmap[i : i+firstKeyLen]
+		dataBlock.firstKeyBytes = data[i : i+firstKeyLen]
 		i += firstKeyLen
 
 		r.index = append(r.index, dataBlock)
@@ -232,14 +207,14 @@ func (r *Reader) GetBlockBuf(i int, dst []byte) ([]byte, error) {
 
 	switch r.compressionCodec {
 	case CompressionNone:
-		dst = r.mmap[block.offset : block.offset+uint64(block.size)]
+		dst = r.data[block.offset : block.offset+uint64(block.size)]
 	case CompressionSnappy:
-		uncompressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset : block.offset+4])
+		uncompressedByteSize := binary.BigEndian.Uint32(r.data[block.offset : block.offset+4])
 		if uncompressedByteSize != block.size {
 			return nil, errors.New("mismatched uncompressed block size")
 		}
-		compressedByteSize := binary.BigEndian.Uint32(r.mmap[block.offset+4 : block.offset+8])
-		compressedBytes := r.mmap[block.offset+8 : block.offset+8+uint64(compressedByteSize)]
+		compressedByteSize := binary.BigEndian.Uint32(r.data[block.offset+4 : block.offset+8])
+		compressedBytes := r.data[block.offset+8 : block.offset+8+uint64(compressedByteSize)]
 		dst, err = snappy.Decode(dst, compressedBytes)
 		if err != nil {
 			return nil, err

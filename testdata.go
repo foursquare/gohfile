@@ -65,7 +65,7 @@ func WriteMockIntPairs(w *Writer, keyCount int, progress bool, multi bool) error
 	return nil
 }
 
-func TestdataCollectionSet(name string, count int, compress, lock bool) (*CollectionSet, error) {
+func TestdataCollectionSet(name string, count int, compress bool, load LoadMethod) (*CollectionSet, error) {
 	path := fmt.Sprintf("testdata/%s.%d.hfile", name, count)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err = GenerateMockHfile(path, count, 4098, compress, false, false)
@@ -77,5 +77,5 @@ func TestdataCollectionSet(name string, count int, compress, lock bool) (*Collec
 	} else if err != nil {
 		return nil, err
 	}
-	return LoadCollections([]*CollectionConfig{{name, path, path, lock, false, name, "", "", ""}}, os.TempDir())
+	return LoadCollections([]*CollectionConfig{{name, path, path, load, false, name, "", "", ""}}, os.TempDir())
 }
